@@ -13,7 +13,7 @@
 
 ## Kararlar (kullanıcı)
 
-- **Veri kaynağı: Ankara Eczacı Odası**, `https://www.aeo.org.tr/nobetci-eczaneler` (Ankara + Kırıkkale). Sayfa telefondan doğrudan okunur (`SRC_AEO.parse`: `#pharmaciesList .inline-box`, `data-district`, harita bağlantısındaki koordinat). Sunucu ve API anahtarı yok.
+- **Veri kaynağı: Ankara Eczacı Odası** (Ankara + Kırıkkale). Liste `https://www.aeo.org.tr/getPharmacies/YYYY-AA-GG` adresinden alınır (sitenin kendi sayfasının kullandığı istek; cevap `{ status:"success", html:"…" }`, içerik türü `text/html` olduğu için metin gelir ve `JSON.parse` edilir). **`/nobetci-eczaneler` sayfasının ham HTML'inde eczane yoktur**, liste sonradan bu istekle dolar; sayfa okunmaz. İstenen tarih telefonun bugünkü tarihidir; sabah nöbet değişene kadar site bir önceki günün listesini kendisi verir ve bunu `.alert-nobet` satırıyla söyler (ekranda `#noticeBox`, nöbet günü bu satırdan okunur). Kutular `SRC_AEO.parse` ile ayrıştırılır (`.inline-box`, `data-district`, harita bağlantısındaki koordinat). İlçe listeleri sabittir (`AEO_DISTRICTS`). Sunucu ve API anahtarı yok.
 - **API ile veri alma (NosyAPI vb.) sonra konuşulacak**; şimdi önerilmez. Yeni il / kaynak `SOURCES` dizisine eklenir, ekran kodu kaynağı bilmez.
 - **Tema: yalnız koyu ve açık** (+ sistem). Görev & Not uygulamasından yalnız görünüm örnek alındı (dolu üst kart, yuvarlak kartlar, alt sekme çubuğu); başka tema eklenmez.
 - **Sesli arama isteğe bağlı**: mikrofon düğmesi, sesli yanıt ve "bulunamazsa en yakını göster" Ayarlar'dan açılıp kapanır.
@@ -36,7 +36,8 @@
 
 ## Açık konular
 
-- **Telefonda liste gelmedi (2026-11-21, ilk kurulum):** ekranda "Liste alınamadı" çıktı. Şüphe: yerel HTTP isteği tarayıcı kimliği olmadan gidiyordu. PR #1 isteğe WebView'ın `User-Agent`'ını ekledi ve hata ayrıntısını ekrana yazdırdı; **telefonda doğrulanmadı**. Kullanıcının telefonunda VPN / engelleyici açık görünüyordu, o da neden olabilir. Devam ederken önce ekrandaki ayrıntı satırı sorulur.
+- **Telefonda liste gelmedi (2026-11-21):** ilk kurulumda "Liste alınamadı". PR #1 hata ayrıntısını ekrana yazdırdı; ayrıntı "sayfa geldi ama içinde eczane bulunamadı" çıktı (liste sayfada değil, ayrı istekteymiş). PR #2 `getPharmacies` isteğine geçti; **telefonda doğrulanacak.**
+- **Açılır kutular telefonda açılmadı (2026-11-21, kullanıcı):** neden bilinmiyor. PR #2'de `<select>` kaldırıldı; şehir / ilçe seçimi uygulamanın kendi alt penceresiyle (`openPicker`, `#pickBd`; geri tuşu `closePicker`). **Yeni seçim alanı eklenirse `<select>` kullanılmaz.**
 - Telefonda henüz denenmeyenler: mikrofon (`Ses.dinle`), sesli okuma (`Ses.oku`), "Ara" ve "Yol tarifi" düğmeleri, geri tuşu.
 - Tarih seçimi yok: site hangi günün nöbetini gösteriyorsa o gelir.
 - Mağazada yayın düşünülürse Ankara Eczacı Odası'ndan yazılı izin alınması önerildi.
