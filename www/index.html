@@ -37,6 +37,7 @@
     --amber:#D9A441;
     --amber-soft:rgba(217,164,65,0.12);
     --danger:#D0564C;
+    --danger-soft:rgba(208,86,76,0.14);
     --hero:#1B7F5A;
     --hero-text:#FFFFFF;
     --hero-soft:rgba(255,255,255,0.78);
@@ -60,6 +61,7 @@
     --amber:#9A5B12;
     --amber-soft:rgba(154,91,18,0.10);
     --danger:#B3261E;
+    --danger-soft:rgba(179,38,30,0.08);
     --hero:#1D8A61;
     --shadow:0 2px 10px rgba(20,30,50,0.06);
     color-scheme:light;
@@ -152,6 +154,10 @@
   .sheet-list .opt em{font-style:normal;font-size:12.5px;font-weight:700;color:var(--text-soft);background:var(--card);border-radius:999px;padding:3px 10px;flex:none;}
   .sheet-list .opt.zero em{opacity:0.55;}
   .notice{border:1px solid var(--amber);background:var(--amber-soft);border-radius:16px;padding:10px 14px;margin-bottom:14px;font-size:13.5px;}
+  /* Eski liste uyarısı: gösterilen liste güncel nöbete ait olmayabilir */
+  .notice.old{border:2px solid var(--danger);background:var(--danger-soft);padding:12px 14px;font-size:14px;}
+  .notice.old b{display:block;font-size:15px;font-weight:800;color:var(--danger);margin-bottom:3px;}
+  .notice.old .btn{margin-top:10px;}
 
   .search-row{display:flex;gap:10px;margin-top:12px;align-items:stretch;}
   .search-wrap{position:relative;flex:1;min-width:0;}
@@ -314,6 +320,11 @@
       </div>
     </div>
 
+    <div class="notice old" id="oldBox" hidden role="alert">
+      <b>Bu liste güncel olmayabilir</b>
+      <span id="oldText"></span><br>
+      <button class="btn" id="oldRetry" type="button">Yeniden dene</button>
+    </div>
     <div class="notice" id="noticeBox" hidden></div>
 
     <div class="result" id="resultBox" hidden role="status" aria-live="polite">
@@ -556,7 +567,7 @@ const SRC_AEO = {
         if(afterBr) note += t; else address += t;
       });
       address = address.replace(/\s+/g, ' ').trim();
-      note = note.replace(/\s+/g, ' ').replace(/^[“"”]+|[“"”]+$/g, '').trim();
+      note = note.replace(/\s+/g, ' ').trim().replace(/^[“"”]+|[“"”]+$/g, '').trim();
       phone = phone.replace(/\s+/g, ' ').trim();
       let lat = null, lng = null;
       box.querySelectorAll('a[href]').forEach(a => {
@@ -574,14 +585,17 @@ const SRC_AEO = {
     list.forEach(p => { if(p.district !== OTHER && !districts[p.city].includes(p.district)) districts[p.city].push(p.district); });
     Object.keys(districts).forEach(c => districts[c].sort((a, b) => a.localeCompare(b, 'tr')));
     // Sitenin uyarı satırı: "22.11.2026 saat 09:30'a kadar 21.11.2026 tarihli nöbet listesi geçerlidir."
-    let notice = '', duty = date || '';
+    // Baştaki tarih ve saat listenin geçerlilik sonudur; saat koda yazılmaz (ile ve güne göre değişir), siteden okunur.
+    let notice = '', duty = date || '', until = 0;
     const al = doc.querySelector('.alert-nobet');
     if(al){
       notice = (al.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 240);
       const dm = /(\d{2})\.(\d{2})\.(\d{4})\s+tarihli/.exec(notice);
       if(dm) duty = dm[3] + '-' + dm[2] + '-' + dm[1];
+      const um = /(\d{2})\.(\d{2})\.(\d{4})\s+saat\s+(\d{1,2})[:.](\d{2})/.exec(notice);
+      if(um){ const t = new Date(+um[3], um[2] - 1, +um[1], +um[4], +um[5]).getTime(); if(isFinite(t)) until = t; }
     }
-    return { duty, districts, list, notice };
+    return { duty, districts, list, notice, until };
   },
   async fetchAll(){
     const date = ymd(new Date());
@@ -603,7 +617,7 @@ function sourceOf(city){ return SOURCES.find(s => s.cities.includes(city)) || SO
 /* ---------- Durum ---------- */
 const ALL = '';                 // "Tüm ilçeler"
 const CACHE_MIN = 30;           // liste bu kadar dakikadan eskiyse açılışta / öne gelişte yenilenir
-let data = null;                // { src, duty, districts, list, at }
+let data = null;                // { src, duty, districts, list, at, notice, until }
 let loading = false, loadError = '', loadDetail = '';
 let selCity = CITIES[0], selDist = ALL;
 let query = '';                 // arama kutusundaki metin
@@ -856,15 +870,24 @@ function render(){
   const duty = data && data.duty ? new Date(data.duty + 'T12:00:00') : new Date();
   $('heroDate').textContent = dateLabel(duty);
   const n = countIn(selCity, selDist);
-  $('heroCount').textContent = data ? String(n) : '–';
+  // Eski liste: yenisi gelene kadar gösterilmez; gelmezse uyarıyla gösterilir.
+  const old = isOutdated(data), waitNew = old && loading;
+  $('heroCount').textContent = data && !waitNew ? String(n) : '–';
   const place = selDist === ALL ? selCity : selCity + ' · ' + selDist;
   $('heroSub').textContent = loading && !data ? 'Liste yükleniyor…' : place;
   $('refreshBtn').classList.toggle('spin', loading);
 
   // Sitenin uyarısı (ör. sabah nöbet değişene kadar dünkü liste geçerli)
   const nb = $('noticeBox');
-  nb.hidden = !(data && data.notice && !searchRes);
+  nb.hidden = !(data && data.notice && !searchRes && !old);
   nb.textContent = (data && data.notice) || '';
+
+  $('oldBox').hidden = !(old && !loading);
+  if(old && !loading){
+    const at = new Date(data.at);
+    $('oldText').textContent = (data.duty ? dateLabel(new Date(data.duty + 'T12:00:00')) + ' nöbetine ait; ' : '')
+      + dateLabel(at) + ' ' + clock(at) + '’de alındı. Güncel liste alınamadı. Gitmeden önce eczaneyi mutlaka arayın.';
+  }
 
   // Arama sonucu satırı
   box.hidden = true; box.classList.remove('warn'); $('speakBtn').hidden = true;
@@ -886,6 +909,7 @@ function render(){
   else if(searchRes && searchRes.mode === 'none'){ items = []; title = 'Arama sonucu · ' + selCity; }
   else if(searchRes && searchRes.mode === 'busy'){ items = null; title = 'Arama sonucu · ' + selCity; }
   else { items = data ? data.list.filter(p => p.city === selCity && (selDist === ALL || p.district === selDist)).map(p => ({ p })) : null; title = place; }
+  if(waitNew) items = null;
   $('listTitle').textContent = title;
   $('listMeta').textContent = data ? 'Güncelleme ' + clock(new Date(data.at)) : '';
 
@@ -922,9 +946,24 @@ function cacheRead(){
     .map(p => ({ id: String(p.id), name: p.name, city: String(p.city), district: String(p.district), address: p.address,
                  note: String(p.note || ''), phone: String(p.phone || ''),
                  lat: typeof p.lat === 'number' ? p.lat : null, lng: typeof p.lng === 'number' ? p.lng : null }));
-  return list.length ? { src: c.src, duty: String(c.duty || ''), districts: c.districts, list, at: Number(c.at), notice: String(c.notice || '').slice(0, 240) } : null;
+  return list.length ? { src: c.src, duty: String(c.duty || ''), districts: c.districts, list, at: Number(c.at), notice: String(c.notice || '').slice(0, 240), until: Number(c.until) || 0 } : null;
 }
-function isFresh(d){ return d && (Date.now() - d.at) < CACHE_MIN * 60000 && new Date(d.at).toDateString() === new Date().toDateString(); }
+// Liste eski mi: site geçerlilik sonunu söylediyse o an geçince, söylemediyse liste önceki bir günde alındıysa.
+function isOutdated(d){
+  if(!d) return false;
+  if(d.until) return Date.now() >= d.until;
+  return new Date(d.at).toDateString() !== new Date().toDateString();
+}
+function isFresh(d){ return d && (Date.now() - d.at) < CACHE_MIN * 60000 && !isOutdated(d); }
+// Uygulama açıkken nöbet değişirse (sitenin söylediği saat ya da gece yarısı) liste kendiliğinden yenilenir.
+let turnTimer = null;
+function scheduleTurn(){
+  clearTimeout(turnTimer);
+  if(!data) return;
+  const now = Date.now(), mid = new Date(); mid.setHours(24, 0, 5, 0);
+  const next = data.until > now ? data.until + 5000 : mid.getTime();
+  turnTimer = setTimeout(() => { if(document.hidden) return; if(isOutdated(data)) load(true); else scheduleTurn(); }, Math.max(1000, next - now));
+}
 
 async function load(force){
   if(loading) return;
@@ -933,11 +972,12 @@ async function load(force){
   const src = sourceOf(selCity);
   try{
     const d = await src.fetchAll();
-    data = { src: src.id, duty: d.duty, districts: d.districts, list: d.list, at: Date.now(), notice: d.notice || '' };
+    data = { src: src.id, duty: d.duty, districts: d.districts, list: d.list, at: Date.now(), notice: d.notice || '', until: d.until || 0 };
     lsSet(LS.cache, JSON.stringify(data));
+    scheduleTurn();
     if(searchRes) { loading = false; runSearch(query, { full: searchRes.mode !== 'none' || !searchRes.typing }); return; }
   }catch(e){
-    if(data){ data.stale = true; toast('Liste yenilenemedi, kayıtlı liste gösteriliyor'); }
+    if(data){ data.stale = true; if(!isOutdated(data)) toast('Liste yenilenemedi, kayıtlı liste gösteriliyor'); }
     else {
       loadDetail = String((e && e.message) || e || '').slice(0, 200);
       loadError = !NATIVE_APP ? 'Tarayıcı bu siteyi doğrudan okuyamaz (CORS). Uygulama telefonda çalışır.'
@@ -1008,6 +1048,7 @@ $('pickClose').addEventListener('click', closePicker);
 $('pickBd').addEventListener('click', e => { if(e.target === $('pickBd')) closePicker(); });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closePicker(); });
 $('refreshBtn').addEventListener('click', () => load(true));
+$('oldRetry').addEventListener('click', () => load(true));
 $('micBtn').addEventListener('click', micListen);
 $('speakBtn').addEventListener('click', () => { if(searchRes) speak(searchRes.speech); });
 $('searchClear').addEventListener('click', () => { clearSearch(); render(); $('searchInput').focus(); });
@@ -1040,7 +1081,7 @@ if(window.matchMedia){
   if(mq.addEventListener) mq.addEventListener('change', applyTheme);
 }
 // Uygulama öne gelince liste eskiyse yenilenir (nöbet günü sabah değişir).
-document.addEventListener('visibilitychange', () => { if(!document.hidden) load(false); else stopSpeak(); });
+document.addEventListener('visibilitychange', () => { if(!document.hidden){ scheduleTurn(); load(false); } else stopSpeak(); });
 
 /* ---------- Açılış ---------- */
 (function init(){
@@ -1051,6 +1092,7 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden) load(
   applyTheme();
   render();
   micInit();
+  scheduleTurn();
   load(false);
 
   if(NATIVE_APP){

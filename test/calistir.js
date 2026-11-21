@@ -1,0 +1,215 @@
+// Uygulama testi ("npm test"). www/ http üzerinden açılır; aeo.org.tr ve nominatim istekleri kayıtlı cevapla karşılanır,
+// uygulama davranışı için window.Capacitor taklit edilir. Gerçek siteye istek gitmez.
+// Playwright gerekir (depoya bağımlılık olarak eklenmedi):  npm i -D playwright && npx playwright install chromium
+const fs = require('fs');
+const http = require('http');
+const path = require('path');
+const assert = require('assert');
+
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch (e) { console.error('Playwright bulunamadı. Kurmak için:  npm i -D playwright && npx playwright install chromium'); process.exit(1); }
+
+const KOK = path.join(__dirname, '..', 'www');
+const YAPAY = fs.readFileSync(path.join(__dirname, 'ornek', 'yapay.html'), 'utf8');
+const GERCEK_YOL = path.join(__dirname, 'ornek', 'gercek.json');
+const TUR = { '.html': 'text/html; charset=utf-8', '.woff2': 'font/woff2' };
+const uyari = (son, nobet) => '<div class="alert alert-nobet">' + son + " saat 09:30'a kadar " + nobet + ' tarihli nöbet listesi geçerlidir.</div>';
+
+const sunucu = http.createServer((q, r) => {
+  const yol = path.join(KOK, decodeURIComponent(q.url.split('?')[0]).replace(/^\/$/, '/index.html'));
+  if (!yol.startsWith(KOK) || !fs.existsSync(yol)) { r.writeHead(404); r.end(); return; }
+  r.writeHead(200, { 'Content-Type': TUR[path.extname(yol)] || 'application/octet-stream' });
+  fs.createReadStream(yol).pipe(r);
+});
+
+// Capacitor taklidi: uygulama yerel HTTP yolunu (CapacitorHttp) kullanır.
+const CAP = () => {
+  window.Capacitor = { isNativePlatform: () => true, Plugins: { CapacitorHttp: {
+    get: async o => { const r = await fetch(o.url); return { status: r.status, data: await r.text() }; }
+  } } };
+};
+
+(async () => {
+  await new Promise(c => sunucu.listen(0, '127.0.0.1', c));
+  const adres = 'http://127.0.0.1:' + sunucu.address().port + '/';
+  const tarayici = await chromium.launch();
+  let gecen = 0, kalan = 0;
+
+  // ayar: { saat, cevap(url) → html | null (bağlantı yok) | {bozuk}, yer: [lat, lon] | null, sahteSaat }
+  async function sayfaAc(ayar) {
+    const ctx = await tarayici.newContext({ viewport: { width: 390, height: 800 }, locale: 'tr-TR', timezoneId: 'Europe/Istanbul' });
+    const page = await ctx.newPage();
+    const durum = { ayar, istekler: [], yerIstek: [] };
+    await page.addInitScript(CAP);
+    if (ayar.sahteSaat) await page.clock.install({ time: new Date(ayar.saat) });
+    else await page.clock.setFixedTime(new Date(ayar.saat));
+    await ctx.route('https://www.aeo.org.tr/**', async route => {
+      durum.istekler.push(route.request().url());
+      const c = await durum.ayar.cevap(route.request().url());
+      if (c === null) return route.abort('internetdisconnected');
+      const govde = typeof c === 'string' ? JSON.stringify({ status: 'success', html: c }) : c.bozuk;
+      return route.fulfill({ status: 200, contentType: 'text/html; charset=UTF-8', headers: { 'access-control-allow-origin': '*' }, body: govde });
+    });
+    await ctx.route('https://nominatim.openstreetmap.org/**', route => {
+      durum.yerIstek.push(decodeURIComponent(route.request().url()));
+      const y = durum.ayar.yer;
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify(y ? [{ lat: String(y[0]), lon: String(y[1]) }] : []) });
+    });
+    await page.goto(adres);
+    return { ctx, page, durum };
+  }
+  async function dene(ad, fn) {
+    try { await fn(); gecen++; console.log('  geçti  ' + ad); }
+    catch (e) { kalan++; console.log('  KALDI  ' + ad + '\n         ' + String(e && e.message || e).split('\n').join('\n         ')); }
+  }
+  const metin = (page, sec) => page.locator(sec).innerText();
+  const adlar = page => page.locator('#list .p-name').allInnerTexts();
+
+  await dene('liste ayrıştırılır, ilçe ve şehir doğru atanır', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY });
+    await page.waitForSelector('#list .ph');
+    assert.deepStrictEqual(durum.istekler, ['https://www.aeo.org.tr/getPharmacies/2026-11-21']);
+    assert.strictEqual((await adlar(page)).length, 5);                       // Ankara: 5 (adsız kutu sayılmaz)
+    assert.strictEqual(await metin(page, '#heroCount'), '5');
+    assert.strictEqual(await metin(page, '#heroDate'), '21 Kasım Cumartesi');
+    assert.strictEqual(await page.locator('#oldBox').isHidden(), true);
+    const ilk = page.locator('#list .ph').first();
+    assert.strictEqual(await ilk.locator('.p-name').innerText(), 'CİNNAH ÖRNEK ECZANESİ');
+    assert.strictEqual(await ilk.locator('.p-addr').innerText(), 'Cinnah Cad. No:12/A Çankaya');
+    assert.strictEqual(await ilk.locator('.p-note').innerText(), 'Kuğulu Park karşısı');
+    assert.strictEqual(await ilk.locator('.p-phone').innerText(), '0 (312) 555 01 01');
+    assert.strictEqual(await ilk.locator('a.call').getAttribute('href'), 'tel:03125550101');
+    assert.strictEqual(await ilk.locator('.p-act a').nth(1).getAttribute('href'), 'https://www.google.com/maps/search/?api=1&query=39.9015,32.861');
+    // "Kazan" → Kahramankazan; telefon yalnız tel: bağlantısında olsa da okunur
+    assert.ok((await page.locator('#list .p-dist').allInnerTexts()).includes('Kahramankazan'));
+    assert.strictEqual(await page.locator('#list .ph', { hasText: 'ETLİK' }).locator('a.call').getAttribute('href'), 'tel:03125550303');
+    // Kırıkkale: ilçe "Kırıkkale" → Merkez, "Belirlenmemiş" + adreste Kırıkkale → Kırıkkale / ilçesiz
+    await page.click('#cityBtn'); await page.click('#pickList .opt:has-text("Kırıkkale")');
+    assert.strictEqual((await adlar(page)).length, 3);
+    assert.deepStrictEqual((await page.locator('#list .p-dist').allInnerTexts()).sort(), ['Keskin', 'Merkez']);
+    await ctx.close();
+  });
+
+  await dene('siteden gelen metin HTML olarak çalışmaz, bağlantılar kodda üretilir', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY });
+    await page.waitForSelector('#list .ph');
+    const kart = page.locator('#list .ph', { hasText: 'onerror' });
+    assert.strictEqual(await kart.locator('.p-name').innerText(), '<img src=x onerror=window.__xss=1> ECZANESİ');
+    assert.strictEqual(await page.locator('#list img, #list b').count(), 0);
+    assert.strictEqual(await page.evaluate(() => window.__xss), undefined);
+    assert.strictEqual(await kart.locator('a.call').getAttribute('href'), null);           // "abc" telefon değil
+    const harita = await kart.locator('.p-act a').nth(1).getAttribute('href');             // 99.9 enlem geçersiz → adla arama
+    assert.ok(harita.startsWith('https://www.google.com/maps/search/?api=1&query=%3Cimg'), harita);
+    assert.strictEqual(await page.locator('#list a[href^="javascript"]').count(), 0);
+    await ctx.close();
+  });
+
+  await dene('sitenin uyarısı: nöbet günü ve geçerlilik saati okunur, saat geçince liste kendiliğinden yenilenir', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-22T08:00:00+03:00', sahteSaat: true,
+      cevap: () => uyari('22.11.2026', '21.11.2026') + YAPAY });
+    await page.waitForSelector('#list .ph');
+    assert.deepStrictEqual(durum.istekler, ['https://www.aeo.org.tr/getPharmacies/2026-11-22']);
+    assert.strictEqual(await metin(page, '#heroDate'), '21 Kasım Cumartesi');
+    assert.ok((await metin(page, '#noticeBox')).includes("09:30'a kadar"));
+    assert.strictEqual(await page.locator('#oldBox').isHidden(), true);
+    durum.ayar.cevap = () => YAPAY.replace('CİNNAH', 'PAZAR');                              // 09:30'dan sonra yeni liste
+    await page.clock.fastForward(91 * 60000);
+    await page.waitForSelector('#list .p-name:has-text("PAZAR")');
+    assert.strictEqual(durum.istekler.length, 2);
+    assert.strictEqual(await metin(page, '#heroDate'), '22 Kasım Pazar');
+    assert.strictEqual(await page.locator('#noticeBox').isHidden(), true);
+    await ctx.close();
+  });
+
+  await dene('eski liste: yenisi beklenirken gösterilmez, alınamazsa uyarıyla gösterilir', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY });
+    await page.waitForSelector('#list .ph');
+    // Ertesi gün öğleden sonra: önbellekte dünün listesi var, istek bekliyor
+    let birak; const bekle = new Promise(c => { birak = c; });
+    durum.ayar.cevap = async () => { await bekle; return null; };
+    await page.clock.setFixedTime(new Date('2026-11-22T14:00:00+03:00'));
+    await page.reload();
+    await page.waitForSelector('#list .skel');
+    assert.strictEqual(await page.locator('#list .ph').count(), 0);
+    assert.strictEqual(await metin(page, '#heroCount'), '–');
+    birak();
+    await page.waitForSelector('#oldBox:not([hidden])');
+    assert.strictEqual((await adlar(page)).length, 5);
+    const u = await metin(page, '#oldText');
+    assert.ok(u.includes('21 Kasım Cumartesi nöbetine ait') && u.includes('20:00'), u);
+    // Yeniden dene: liste gelince uyarı kalkar
+    durum.ayar.cevap = () => YAPAY;
+    await page.click('#oldRetry');
+    await page.waitForSelector('#heroDate:has-text("22 Kasım Pazar")');
+    assert.strictEqual(await page.locator('#oldBox').isHidden(), true);
+    await ctx.close();
+  });
+
+  await dene('sitenin söylediği saat geçmiş ve liste yenilenemiyorsa uyarı çıkar; saat geçmemişse çıkmaz', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-22T08:00:00+03:00', cevap: () => uyari('22.11.2026', '21.11.2026') + YAPAY });
+    await page.waitForSelector('#list .ph');
+    durum.ayar.cevap = () => null;
+    await page.clock.setFixedTime(new Date('2026-11-22T09:10:00+03:00'));                   // 30 dk'dan eski ama hâlâ geçerli
+    await page.reload();
+    await page.waitForSelector('#footNote:has-text("çevrimdışı")');
+    assert.strictEqual(await page.locator('#oldBox').isHidden(), true);
+    await page.clock.setFixedTime(new Date('2026-11-22T09:31:00+03:00'));
+    await page.reload();
+    await page.waitForSelector('#oldBox:not([hidden])');
+    assert.strictEqual(await page.locator('#noticeBox').isHidden(), true);
+    await ctx.close();
+  });
+
+  await dene('arama: cadde eşleşir; eşleşme yoksa en yakın üç eczane mesafeyle gelir', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, yer: [39.9690, 32.8310] });
+    await page.waitForSelector('#list .ph');
+    await page.click('#distBtn'); await page.click('#pickList .opt:has-text("Keçiören")');
+    await page.fill('#searchInput', 'cinnah caddesinde nöbetçi eczane');
+    await page.waitForSelector('#resultBox:not([hidden])');
+    assert.deepStrictEqual(await adlar(page), ['CİNNAH ÖRNEK ECZANESİ']);                   // ilçe seçimi aramayı daraltmaz
+    await page.fill('#searchInput', 'alipaşa');
+    await page.waitForSelector('#list .p-name:has-text("ALİ PAŞA")');
+    await page.fill('#searchInput', 'Ovacık');
+    await page.waitForSelector('#nearBtn');
+    assert.strictEqual(durum.yerIstek.length, 0);                                           // yazarken dışarı istek gitmez
+    await page.press('#searchInput', 'Enter');
+    await page.waitForSelector('#list .ph.near');
+    assert.strictEqual(durum.yerIstek.length, 1);
+    assert.ok(durum.yerIstek[0].includes('q=Ovacık, Ankara, Türkiye'), durum.yerIstek[0]);
+    assert.strictEqual((await adlar(page))[0], 'ETLİK ECZANESİ');
+    assert.strictEqual((await adlar(page)).length, 3);
+    assert.strictEqual(await page.locator('#list .ph.near .p-dist').first().innerText(), '150 m');
+    await ctx.close();
+  });
+
+  await dene('bozuk ya da boş cevapta "Liste alınamadı" ve ayrıntı görünür', async () => {
+    let s = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => '<div class="baska-yapi">yok</div>' });
+    await s.page.waitForSelector('#retryBtn');
+    assert.ok((await metin(s.page, '#list')).includes('içinde eczane bulunamadı'));
+    await s.ctx.close();
+    s = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => ({ bozuk: '<html>Bakım</html>' }) });
+    await s.page.waitForSelector('#retryBtn');
+    assert.ok((await metin(s.page, '#list')).includes('beklenen cevap gelmedi'));
+    await s.ctx.close();
+  });
+
+  if (fs.existsSync(GERCEK_YOL)) {
+    await dene('kayıtlı gerçek cevap ayrıştırılır (test/ornek/gercek.json)', async () => {
+      const g = JSON.parse(fs.readFileSync(GERCEK_YOL, 'utf8'));
+      const { ctx, page } = await sayfaAc({ saat: g.tarih + 'T20:00:00+03:00', cevap: () => g.html });
+      await page.waitForSelector('#list .ph');
+      const o = await page.evaluate(() => ({ n: data.list.length, adres: data.list.filter(p => p.address).length,
+        yer: data.list.filter(p => p.lat != null).length, tel: data.list.filter(p => telHref(p.phone)).length,
+        ilce: data.list.filter(p => p.district !== OTHER).length }));
+      assert.ok(o.n >= 20, 'eczane sayısı az: ' + o.n);
+      for (const k of ['adres', 'yer', 'tel', 'ilce']) assert.ok(o[k] >= o.n * 0.9, k + ' eksik: ' + o[k] + ' / ' + o.n);
+      await ctx.close();
+    });
+  } else console.log('  atlandı  kayıtlı gerçek cevap yok (npm run ornek:al ile alınır)');
+
+  await tarayici.close(); sunucu.close();
+  console.log('\n' + gecen + ' geçti, ' + kalan + ' kaldı');
+  process.exit(kalan ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });
