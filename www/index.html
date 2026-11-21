@@ -126,6 +126,32 @@
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238A93A6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:right 13px center;}
   .field select:focus, .search-wrap input:focus{border-color:var(--green);}
+  .field .f-lbl{display:block;font-size:12px;font-weight:600;color:var(--text-soft);margin:0 0 5px 4px;}
+  /* Seçim düğmesi: telefonun kendi açılır kutusu yerine uygulamanın alt penceresi açılır */
+  .pick-btn{
+    width:100%;height:48px;border-radius:14px;border:1px solid var(--border);background:var(--card);
+    padding:0 12px 0 14px;font-size:15.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;
+  }
+  .pick-btn span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pick-btn svg{width:12px;height:8px;flex:none;color:var(--text-soft);}
+  .pick-btn:active{background:var(--card-hover);}
+  .sheet-bd{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center;}
+  .sheet{
+    width:100%;max-width:640px;max-height:78vh;background:var(--panel);border-radius:22px 22px 0 0;border:1px solid var(--border);border-bottom:0;
+    display:flex;flex-direction:column;padding-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  }
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 10px 20px;}
+  .sheet-head h3{margin:0;font-size:16px;font-weight:800;color:var(--accent-text);}
+  .sheet-list{overflow-y:auto;padding:0 10px 12px;-webkit-overflow-scrolling:touch;}
+  .sheet-list .opt{
+    width:100%;min-height:50px;border:0;background:transparent;border-radius:12px;padding:0 12px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15.5px;font-weight:600;text-align:left;
+  }
+  .sheet-list .opt:active{background:var(--card-hover);}
+  .sheet-list .opt.sel{background:var(--accent-soft);color:var(--accent-text);}
+  .sheet-list .opt em{font-style:normal;font-size:12.5px;font-weight:700;color:var(--text-soft);background:var(--card);border-radius:999px;padding:3px 10px;flex:none;}
+  .sheet-list .opt.zero em{opacity:0.55;}
+  .notice{border:1px solid var(--amber);background:var(--amber-soft);border-radius:16px;padding:10px 14px;margin-bottom:14px;font-size:13.5px;}
 
   .search-row{display:flex;gap:10px;margin-top:12px;align-items:stretch;}
   .search-wrap{position:relative;flex:1;min-width:0;}
@@ -266,12 +292,12 @@
     <div class="card">
       <div class="pick">
         <div class="field">
-          <label for="citySel">Şehir</label>
-          <select id="citySel"></select>
+          <span class="f-lbl" id="cityLbl">Şehir</span>
+          <button type="button" class="pick-btn" id="cityBtn" aria-labelledby="cityLbl cityBtn" aria-haspopup="dialog"><span></span><svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l5 5 5-5"/></svg></button>
         </div>
         <div class="field">
-          <label for="distSel">İlçe</label>
-          <select id="distSel"></select>
+          <span class="f-lbl" id="distLbl">İlçe</span>
+          <button type="button" class="pick-btn" id="distBtn" aria-labelledby="distLbl distBtn" aria-haspopup="dialog"><span></span><svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l5 5 5-5"/></svg></button>
         </div>
       </div>
       <div class="search-row">
@@ -287,6 +313,8 @@
         </button>
       </div>
     </div>
+
+    <div class="notice" id="noticeBox" hidden></div>
 
     <div class="result" id="resultBox" hidden role="status" aria-live="polite">
       <div class="r-text" id="resultText"></div>
@@ -324,12 +352,12 @@
       </div>
       <div class="pick set-gap" id="fixedPick">
         <div class="field">
-          <label for="defCity">Şehir</label>
-          <select id="defCity"></select>
+          <span class="f-lbl" id="defCityLbl">Şehir</span>
+          <button type="button" class="pick-btn" id="defCityBtn" aria-labelledby="defCityLbl defCityBtn" aria-haspopup="dialog"><span></span><svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l5 5 5-5"/></svg></button>
         </div>
         <div class="field">
-          <label for="defDist">İlçe</label>
-          <select id="defDist"></select>
+          <span class="f-lbl" id="defDistLbl">İlçe</span>
+          <button type="button" class="pick-btn" id="defDistBtn" aria-labelledby="defDistLbl defDistBtn" aria-haspopup="dialog"><span></span><svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l5 5 5-5"/></svg></button>
         </div>
       </div>
     </div>
@@ -382,6 +410,17 @@
     </button>
   </div>
 </nav>
+<div class="sheet-bd" id="pickBd" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+    <div class="sheet-head">
+      <h3 id="pickTitle"></h3>
+      <button class="icon-btn" id="pickClose" type="button" aria-label="Kapat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-list" id="pickList"></div>
+  </div>
+</div>
 <div class="toast" id="toast" hidden role="status"></div>
 
 <script>
@@ -478,10 +517,21 @@ const KIRIKKALE_DISTRICTS = new Set(['bahsili','baliseyh','celebi','delice','kar
 const DISTRICT_LABEL = { 'kazan':'Kahramankazan', 'baliseyh':'Balışeyh', 'kirikkale':'Merkez' };
 const OTHER = 'Diğer';
 
+// İlçe listeleri sabit: liste gelmeden de seçim yapılabilsin, o gün nöbetçisi olmayan ilçe de görünsün.
+const AEO_DISTRICTS = {
+  'Ankara': ['Akyurt','Altındağ','Ayaş','Bala','Beypazarı','Çamlıdere','Çankaya','Çubuk','Elmadağ','Etimesgut','Evren','Gölbaşı','Güdül','Haymana',
+    'Kahramankazan','Kalecik','Keçiören','Kızılcahamam','Mamak','Nallıhan','Polatlı','Pursaklar','Sincan','Şereflikoçhisar','Yenimahalle'],
+  'Kırıkkale': ['Bahşılı','Balışeyh','Delice','Karakeçili','Keskin','Merkez','Sulakyurt','Yahşihan']
+};
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
 const SRC_AEO = {
   id: 'aeo',
   ad: 'Ankara Eczacı Odası',
   url: 'https://www.aeo.org.tr/nobetci-eczaneler',
+  // Sitenin kendi sayfası listeyi bu adresten alır: { status:"success", html:"…eczane kutuları…" }.
+  // Sabah nöbet değişene kadar bir önceki günün listesini kendisi verir ve bunu bir uyarı satırıyla söyler.
+  listUrl(date){ return 'https://www.aeo.org.tr/getPharmacies/' + date; },
   cities: ['Ankara', 'Kırıkkale'],
   cityOf(district, address){
     if(KIRIKKALE_DISTRICTS.has(norm(district))) return 'Kırıkkale';
@@ -489,9 +539,9 @@ const SRC_AEO = {
     return 'Ankara';
   },
   label(raw){ return DISTRICT_LABEL[norm(raw)] || raw; },
-  parse(html){
+  parse(html, date){
     const doc = new DOMParser().parseFromString(String(html), 'text/html');
-    const boxes = doc.querySelectorAll('#pharmaciesList .inline-box');
+    const boxes = doc.querySelectorAll('.inline-box');
     const list = [];
     boxes.forEach((box, i) => {
       const h4 = box.querySelector('h4'), p = box.querySelector('.text p');
@@ -519,27 +569,30 @@ const SRC_AEO = {
       const district = raw === OTHER ? OTHER : this.label(raw);
       list.push({ id: 'aeo-' + i, name, city: this.cityOf(raw, address), district, address, note, phone, lat, lng });
     });
-    // İlçe listesi: sitedeki açılır kutudan (o gün nöbetçisi olmayan ilçeler de görünsün)
     const districts = {};
-    this.cities.forEach(c => { districts[c] = []; });
-    doc.querySelectorAll('#search-input-district option').forEach(o => {
-      const raw = (o.getAttribute('value') || '').trim(); if(!raw) return;
-      const c = this.cityOf(raw, ''), l = this.label(raw);
-      if(!districts[c].includes(l)) districts[c].push(l);
-    });
+    this.cities.forEach(c => { districts[c] = AEO_DISTRICTS[c].slice(); });
     list.forEach(p => { if(p.district !== OTHER && !districts[p.city].includes(p.district)) districts[p.city].push(p.district); });
     Object.keys(districts).forEach(c => districts[c].sort((a, b) => a.localeCompare(b, 'tr')));
-    // Listenin ait olduğu nöbet günü (sitedeki tarih kutusu: "21.11.2026")
-    let duty = '';
-    const di = doc.querySelector('#search-input-date');
-    const dm = di && /^(\d{2})\.(\d{2})\.(\d{4})$/.exec((di.getAttribute('value') || '').trim());
-    if(dm) duty = dm[3] + '-' + dm[2] + '-' + dm[1];
-    return { duty, districts, list };
+    // Sitenin uyarı satırı: "22.11.2026 saat 09:30'a kadar 21.11.2026 tarihli nöbet listesi geçerlidir."
+    let notice = '', duty = date || '';
+    const al = doc.querySelector('.alert-nobet');
+    if(al){
+      notice = (al.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+      const dm = /(\d{2})\.(\d{2})\.(\d{4})\s+tarihli/.exec(notice);
+      if(dm) duty = dm[3] + '-' + dm[2] + '-' + dm[1];
+    }
+    return { duty, districts, list, notice };
   },
   async fetchAll(){
-    const html = await httpGet(this.url, { 'Accept': 'text/html' });
-    const data = this.parse(html);
-    if(!data.list.length) throw new Error('Sayfa geldi ama içinde eczane bulunamadı (' + String(html).length + ' karakter)');
+    const date = ymd(new Date());
+    let r = await httpGet(this.listUrl(date), { 'Accept': 'application/json, text/plain, */*' });
+    if(typeof r === 'string'){
+      try{ r = JSON.parse(r); }
+      catch(e){ throw new Error('Siteden beklenen cevap gelmedi (' + r.length + ' karakter)'); }
+    }
+    if(!r || r.status !== 'success' || typeof r.html !== 'string') throw new Error('Site listeyi vermedi (durum: ' + String(r && r.status).slice(0, 40) + ')');
+    const data = this.parse(r.html, date);
+    if(!data.list.length) throw new Error('Cevap geldi ama içinde eczane bulunamadı (' + r.html.length + ' karakter)');
     return data;
   }
 };
@@ -756,23 +809,44 @@ function cardHtml(it){
     + '</div></article>';
 }
 
-function fillSelect(el, items, value){
-  el.innerHTML = items.map(i => '<option value="' + escapeHtml(i.v) + '">' + escapeHtml(i.t) + '</option>').join('');
-  el.value = items.some(i => i.v === value) ? value : items[0].v;
-  return el.value;
-}
-function districtsOf(city){ return (data && data.districts && data.districts[city]) || lsJson(LS.cache, {}).districts?.[city] || []; }
+function districtsOf(city){ return (data && data.districts && data.districts[city]) || AEO_DISTRICTS[city] || []; }
 function countIn(city, dist){
   if(!data) return 0;
   return data.list.filter(p => p.city === city && (dist === ALL || p.district === dist)).length;
 }
+function setBtn(id, text){ $(id).querySelector('span').textContent = text; }
+
+// Uygulamanın kendi seçim penceresi (telefonun açılır kutusu kullanılmaz).
+let pickCb = null, pickFrom = null;
+function openPicker(title, items, value, cb, from){
+  pickCb = cb; pickFrom = from || null;
+  $('pickTitle').textContent = title;
+  $('pickList').innerHTML = items.map((it, i) =>
+    '<button type="button" class="opt' + (it.v === value ? ' sel' : '') + (it.n === 0 ? ' zero' : '') + '" data-i="' + i + '">'
+    + '<span>' + escapeHtml(it.t) + '</span>' + (it.n != null ? '<em>' + it.n + '</em>' : '') + '</button>').join('');
+  $('pickList')._items = items;
+  $('pickBd').hidden = false;
+  const sel = $('pickList').querySelector('.opt.sel');
+  if(sel) sel.scrollIntoView({ block: 'center' });
+  (sel || $('pickClose')).focus({ preventScroll: true });
+}
+function closePicker(){
+  if($('pickBd').hidden) return false;
+  $('pickBd').hidden = true; pickCb = null;
+  if(pickFrom) pickFrom.focus({ preventScroll: true });
+  pickFrom = null;
+  return true;
+}
+function cityItems(){ return CITIES.map(c => ({ v: c, t: c })); }
+function distItems(city, withCount){
+  return [{ v: ALL, t: 'Tüm ilçeler', n: withCount && data ? countIn(city, ALL) : null }]
+    .concat(districtsOf(city).map(d => ({ v: d, t: d, n: withCount && data ? countIn(city, d) : null })));
+}
 function renderPickers(){
-  selCity = fillSelect($('citySel'), CITIES.map(c => ({ v: c, t: c })), selCity);
-  const ds = districtsOf(selCity);
-  const items = [{ v: ALL, t: 'Tüm ilçeler' }].concat(ds.map(d => ({ v: d, t: data ? d + ' (' + countIn(selCity, d) + ')' : d })));
-  if(selDist !== ALL && !ds.includes(selDist) && ds.length) selDist = ALL;
-  if(selDist !== ALL && !ds.length) items.push({ v: selDist, t: selDist });
-  selDist = fillSelect($('distSel'), items, selDist);
+  if(!CITIES.includes(selCity)) selCity = CITIES[0];
+  if(selDist !== ALL && !districtsOf(selCity).includes(selDist)) selDist = ALL;
+  setBtn('cityBtn', selCity);
+  setBtn('distBtn', selDist === ALL ? 'Tüm ilçeler' : selDist);
 }
 
 function render(){
@@ -786,6 +860,11 @@ function render(){
   const place = selDist === ALL ? selCity : selCity + ' · ' + selDist;
   $('heroSub').textContent = loading && !data ? 'Liste yükleniyor…' : place;
   $('refreshBtn').classList.toggle('spin', loading);
+
+  // Sitenin uyarısı (ör. sabah nöbet değişene kadar dünkü liste geçerli)
+  const nb = $('noticeBox');
+  nb.hidden = !(data && data.notice && !searchRes);
+  nb.textContent = (data && data.notice) || '';
 
   // Arama sonucu satırı
   box.hidden = true; box.classList.remove('warn'); $('speakBtn').hidden = true;
@@ -843,7 +922,7 @@ function cacheRead(){
     .map(p => ({ id: String(p.id), name: p.name, city: String(p.city), district: String(p.district), address: p.address,
                  note: String(p.note || ''), phone: String(p.phone || ''),
                  lat: typeof p.lat === 'number' ? p.lat : null, lng: typeof p.lng === 'number' ? p.lng : null }));
-  return list.length ? { src: c.src, duty: String(c.duty || ''), districts: c.districts, list, at: Number(c.at) } : null;
+  return list.length ? { src: c.src, duty: String(c.duty || ''), districts: c.districts, list, at: Number(c.at), notice: String(c.notice || '').slice(0, 240) } : null;
 }
 function isFresh(d){ return d && (Date.now() - d.at) < CACHE_MIN * 60000 && new Date(d.at).toDateString() === new Date().toDateString(); }
 
@@ -854,14 +933,15 @@ async function load(force){
   const src = sourceOf(selCity);
   try{
     const d = await src.fetchAll();
-    data = { src: src.id, duty: d.duty, districts: d.districts, list: d.list, at: Date.now() };
+    data = { src: src.id, duty: d.duty, districts: d.districts, list: d.list, at: Date.now(), notice: d.notice || '' };
     lsSet(LS.cache, JSON.stringify(data));
     if(searchRes) { loading = false; runSearch(query, { full: searchRes.mode !== 'none' || !searchRes.typing }); return; }
   }catch(e){
     if(data){ data.stale = true; toast('Liste yenilenemedi, kayıtlı liste gösteriliyor'); }
     else {
-      loadError = NATIVE_APP ? 'İnternet bağlantısını kontrol edin.' : 'Tarayıcı bu siteyi doğrudan okuyamaz (CORS). Uygulama telefonda çalışır.';
       loadDetail = String((e && e.message) || e || '').slice(0, 200);
+      loadError = !NATIVE_APP ? 'Tarayıcı bu siteyi doğrudan okuyamaz (CORS). Uygulama telefonda çalışır.'
+        : (/^Bağlantı kurulamadı/.test(loadDetail) ? 'İnternet bağlantısını kontrol edin.' : 'Kaynak site beklenen listeyi vermedi.');
     }
   }
   loading = false; render();
@@ -881,18 +961,21 @@ function renderSettings(){
   const start = lsGet(LS.start, 'last');
   segSet('startSeg', start);
   $('fixedPick').hidden = start !== 'fixed';
-  const def = lsJson(LS.def, { city: CITIES[0], dist: ALL });
-  const dc = fillSelect($('defCity'), CITIES.map(c => ({ v: c, t: c })), def.city);
-  const ds = districtsOf(dc);
-  const items = [{ v: ALL, t: 'Tüm ilçeler' }].concat(ds.map(d => ({ v: d, t: d })));
-  if(def.dist !== ALL && !ds.includes(def.dist)) items.push({ v: def.dist, t: def.dist });
-  fillSelect($('defDist'), items, def.dist);
+  const def = defRead();
+  setBtn('defCityBtn', def.city);
+  setBtn('defDistBtn', def.dist === ALL ? 'Tüm ilçeler' : def.dist);
   $('setMic').checked = lsGet(LS.mic, '1') === '1';
   $('setSpeak').checked = lsGet(LS.speak, '1') === '1';
   $('setNear').checked = lsGet(LS.near, '1') === '1';
   segSet('rateSeg', lsGet(LS.rate, '1'));
 }
-function saveDef(){ lsSet(LS.def, JSON.stringify({ city: $('defCity').value, dist: $('defDist').value })); }
+function defRead(){
+  const d = lsJson(LS.def, null) || {};
+  const city = CITIES.includes(d.city) ? d.city : CITIES[0];
+  const dist = (typeof d.dist === 'string' && districtsOf(city).includes(d.dist)) ? d.dist : ALL;
+  return { city, dist };
+}
+function saveDef(city, dist){ lsSet(LS.def, JSON.stringify({ city, dist })); }
 
 let curTab = 'liste';
 function showView(tab){
@@ -908,8 +991,22 @@ function showView(tab){
 function saveSel(){ lsSet(LS.sel, JSON.stringify({ city: selCity, dist: selDist })); }
 function clearSearch(){ geoSeq++; query = ''; searchRes = null; $('searchInput').value = ''; $('searchClear').hidden = true; stopSpeak(); }
 
-$('citySel').addEventListener('change', e => { selCity = e.target.value; selDist = ALL; clearSearch(); saveSel(); render(); load(false); });
-$('distSel').addEventListener('change', e => { selDist = e.target.value; clearSearch(); saveSel(); render(); });
+$('cityBtn').addEventListener('click', e => openPicker('Şehir', cityItems(), selCity, v => {
+  if(v !== selCity){ selCity = v; selDist = ALL; }
+  clearSearch(); saveSel(); render(); load(false);
+}, e.currentTarget));
+$('distBtn').addEventListener('click', e => openPicker('İlçe · ' + selCity, distItems(selCity, true), selDist, v => {
+  selDist = v; clearSearch(); saveSel(); render();
+}, e.currentTarget));
+$('pickList').addEventListener('click', e => {
+  const b = e.target.closest('.opt'); if(!b) return;
+  const it = ($('pickList')._items || [])[Number(b.dataset.i)], cb = pickCb;
+  closePicker();
+  if(it && cb) cb(it.v);
+});
+$('pickClose').addEventListener('click', closePicker);
+$('pickBd').addEventListener('click', e => { if(e.target === $('pickBd')) closePicker(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closePicker(); });
 $('refreshBtn').addEventListener('click', () => load(true));
 $('micBtn').addEventListener('click', micListen);
 $('speakBtn').addEventListener('click', () => { if(searchRes) speak(searchRes.speech); });
@@ -928,8 +1025,12 @@ $('appTabs').addEventListener('click', e => { const b = e.target.closest('button
 segBind('themeSeg', v => { lsSet(LS.theme, v); applyTheme(); renderSettings(); });
 segBind('startSeg', v => { lsSet(LS.start, v); if(v === 'fixed' && !lsGet(LS.def, '')) lsSet(LS.def, JSON.stringify({ city: selCity, dist: selDist })); renderSettings(); });
 segBind('rateSeg', v => { lsSet(LS.rate, v); renderSettings(); });
-$('defCity').addEventListener('change', () => { $('defDist').value = ALL; lsSet(LS.def, JSON.stringify({ city: $('defCity').value, dist: ALL })); renderSettings(); });
-$('defDist').addEventListener('change', saveDef);
+$('defCityBtn').addEventListener('click', e => openPicker('Şehir', cityItems(), defRead().city, v => {
+  saveDef(v, v === defRead().city ? defRead().dist : ALL); renderSettings();
+}, e.currentTarget));
+$('defDistBtn').addEventListener('click', e => openPicker('İlçe · ' + defRead().city, distItems(defRead().city, false), defRead().dist, v => {
+  saveDef(defRead().city, v); renderSettings();
+}, e.currentTarget));
 $('setMic').addEventListener('change', e => { lsSet(LS.mic, e.target.checked ? '1' : '0'); micShow(); });
 $('setSpeak').addEventListener('change', e => { lsSet(LS.speak, e.target.checked ? '1' : '0'); if(!e.target.checked) stopSpeak(); });
 $('setNear').addEventListener('change', e => { lsSet(LS.near, e.target.checked ? '1' : '0'); });
@@ -954,9 +1055,10 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden) load(
 
   if(NATIVE_APP){
     const P = window.Capacitor.Plugins || {};
-    // Geri tuşu: önce arama kapanır, sonra Ayarlar'dan listeye dönülür, listede uygulamadan çıkılır.
+    // Geri tuşu: önce açık seçim penceresi, sonra arama kapanır, sonra Ayarlar'dan listeye dönülür, listede uygulamadan çıkılır.
     if(P.App && P.App.addListener){
       P.App.addListener('backButton', () => {
+        if(closePicker()) return;
         if(curTab !== 'liste'){ showView('liste'); return; }
         if(searchRes || query){ clearSearch(); render(); return; }
         P.App.exitApp();
