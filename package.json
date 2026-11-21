@@ -1,0 +1,18 @@
+{
+  "name": "nobetci-eczane",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nöbetçi Eczane — şehir / ilçe seçimli nöbetçi eczane listesi, sesli arama. Android (Capacitor).",
+  "scripts": {
+    "android:hazirla": "node scripts/android-ek.js && cap sync android",
+    "android:ac": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}

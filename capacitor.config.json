@@ -1,0 +1,10 @@
+{
+  "appId": "app.simsec.eczane",
+  "appName": "Nöbetçi Eczane",
+  "webDir": "www",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
