@@ -187,6 +187,7 @@
   }
   .empty b{display:block;color:var(--text);font-size:15.5px;margin-bottom:6px;}
   .empty button{margin-top:14px;}
+  .err-detail{margin-top:8px;font-size:12px;opacity:0.85;overflow-wrap:anywhere;}
   .btn{height:46px;padding:0 18px;border-radius:14px;border:1px solid var(--border);background:var(--card);font-weight:700;font-size:14.5px;}
   .btn.primary{background:var(--green);border-color:var(--green);color:#fff;}
   .btn:active{filter:brightness(0.93);}
@@ -446,17 +447,24 @@ function dateLabel(d){ return d.getDate() + ' ' + AYLAR[d.getMonth()] + ' ' + GU
 function clock(d){ return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 
 /* ---------- Ağ: uygulamada Capacitor'ın yerel HTTP'si (CORS'a takılmaz), tarayıcıda fetch ---------- */
+// Bazı siteler tarayıcı kimliği (User-Agent) olmayan istekleri geri çevirir; yerel HTTP'ye WebView'ın kimliği verilir.
 async function httpGet(url, headers){
   const H = NATIVE_APP && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
   if(H){
-    const r = await H.get({ url, headers: headers || {}, responseType: 'text', connectTimeout: 15000, readTimeout: 20000 });
-    if(r.status < 200 || r.status >= 300) throw new Error('HTTP ' + r.status);
+    const hd = Object.assign({ 'User-Agent': navigator.userAgent, 'Accept-Language': 'tr-TR,tr;q=0.9' }, headers || {});
+    let r;
+    try{
+      r = await H.get({ url, headers: hd, responseType: 'text', connectTimeout: 15000, readTimeout: 20000 });
+    }catch(e){
+      throw new Error('Bağlantı kurulamadı (' + String((e && (e.message || e.code)) || e).slice(0, 120) + ')');
+    }
+    if(r.status < 200 || r.status >= 300) throw new Error('Site isteği geri çevirdi (HTTP ' + r.status + ')');
     return r.data;   // metin; JSON cevabında nesne gelebilir
   }
   const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 20000);
   try{
     const r = await fetch(url, { headers: headers || {}, signal: ctl.signal, cache: 'no-store' });
-    if(!r.ok) throw new Error('HTTP ' + r.status);
+    if(!r.ok) throw new Error('Site isteği geri çevirdi (HTTP ' + r.status + ')');
     return await r.text();
   } finally { clearTimeout(tm); }
 }
@@ -531,7 +539,7 @@ const SRC_AEO = {
   async fetchAll(){
     const html = await httpGet(this.url, { 'Accept': 'text/html' });
     const data = this.parse(html);
-    if(!data.list.length) throw new Error('Liste okunamadı');
+    if(!data.list.length) throw new Error('Sayfa geldi ama içinde eczane bulunamadı (' + String(html).length + ' karakter)');
     return data;
   }
 };
@@ -543,7 +551,7 @@ function sourceOf(city){ return SOURCES.find(s => s.cities.includes(city)) || SO
 const ALL = '';                 // "Tüm ilçeler"
 const CACHE_MIN = 30;           // liste bu kadar dakikadan eskiyse açılışta / öne gelişte yenilenir
 let data = null;                // { src, duty, districts, list, at }
-let loading = false, loadError = '';
+let loading = false, loadError = '', loadDetail = '';
 let selCity = CITIES[0], selDist = ALL;
 let query = '';                 // arama kutusundaki metin
 let searchRes = null;           // { q, mode:'match'|'near'|'none'|'busy', items:[{p, km}], speech }
@@ -804,7 +812,7 @@ function render(){
 
   if(items === null){
     if(loadError && !loading){
-      list.innerHTML = '<div class="empty"><b>Liste alınamadı</b>' + escapeHtml(loadError) + '<br><button class="btn primary" type="button" id="retryBtn">Yeniden dene</button></div>';
+      list.innerHTML = '<div class="empty"><b>Liste alınamadı</b>' + escapeHtml(loadError) + (loadDetail ? '<div class="err-detail">' + escapeHtml(loadDetail) + '</div>' : '') + '<br><button class="btn primary" type="button" id="retryBtn">Yeniden dene</button></div>';
       $('retryBtn').onclick = () => load(true);
     } else list.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
   } else if(!items.length){
@@ -842,7 +850,7 @@ function isFresh(d){ return d && (Date.now() - d.at) < CACHE_MIN * 60000 && new 
 async function load(force){
   if(loading) return;
   if(!force && isFresh(data)) return;
-  loading = true; loadError = ''; render();
+  loading = true; loadError = ''; loadDetail = ''; render();
   const src = sourceOf(selCity);
   try{
     const d = await src.fetchAll();
@@ -851,7 +859,10 @@ async function load(force){
     if(searchRes) { loading = false; runSearch(query, { full: searchRes.mode !== 'none' || !searchRes.typing }); return; }
   }catch(e){
     if(data){ data.stale = true; toast('Liste yenilenemedi, kayıtlı liste gösteriliyor'); }
-    else loadError = NATIVE_APP ? 'İnternet bağlantısını kontrol edin.' : 'Tarayıcı bu siteyi doğrudan okuyamaz (CORS). Uygulama telefonda çalışır.';
+    else {
+      loadError = NATIVE_APP ? 'İnternet bağlantısını kontrol edin.' : 'Tarayıcı bu siteyi doğrudan okuyamaz (CORS). Uygulama telefonda çalışır.';
+      loadDetail = String((e && e.message) || e || '').slice(0, 200);
+    }
   }
   loading = false; render();
 }
