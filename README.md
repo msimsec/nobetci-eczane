@@ -22,7 +22,7 @@ npm run android:ac
 
 1. `npm install` Capacitor'ı indirir.
 2. `npx cap add android` `android/` klasörünü üretir.
-3. `npm run android:hazirla` ses eklentisini ve `<queries>` bloğunu Android projesine yerleştirir, web kodunu kopyalar.
+3. `npm run android:hazirla` ses eklentisini, `<queries>` bloğunu ve konum iznini Android projesine yerleştirir, sürüm adını yazar, web kodunu kopyalar.
 4. `npm run android:ac` projeyi Android Studio'da açar; telefon USB ile bağlıyken ▶ ile kurulur.
 
 ## Sonraki değişikliklerde
@@ -42,6 +42,8 @@ Uygulamayı Playwright ile açar; siteye istek gitmez, `aeo.org.tr` ve Nominatim
 
 ## Bilinen sınırlar
 
+- `android/` klasörü depoda tutulmaz; yukarıdaki komutlarla yeniden üretilir. Android Studio'da elle yapılan değişiklik kalıcı olsun isteniyorsa `android-ek/` ya da `scripts/android-ek.js` içine taşınır.
+- "Konumuma en yakın" telefonun konumunu yalnız mesafe hesabı için kullanır; konum saklanmaz ve dışarı gönderilmez. Mesafeler kuş uçuşudur.
 - Tarayıcıda (bilgisayarda `index.html` açılınca) liste gelmez: tarayıcı başka sitenin sayfasını okutmaz (CORS). Uygulama telefonda Capacitor'ın yerel HTTP'siyle okur.
 - Kaynak resmî bir API değil. Oda cevabın yapısını değiştirirse `SRC_AEO.parse` güncellenir.
 - Site nöbet saatlerini vermez (hafta içi akşam, pazar tam gün gibi); uygulama yalnız hangi günün listesinin geçerli olduğunu gösterir.

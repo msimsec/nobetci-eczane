@@ -6,23 +6,11 @@ Thumbs.db
 node_modules/
 npm-debug.log*
 
-# Android (Gradle / Android Studio)
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-android/.idea/
-android/app/release/
-android/app/debug/
+# Android projesi depoya konmaz: "npx cap add android" ve "npm run android:hazirla" ile yeniden üretilir.
+# Uygulamaya özgü Android dosyaları android-ek/ içinde durur ve betikle yerleştirilir.
+android/
 *.apk
 *.aab
-
-# Capacitor: "npx cap sync" her seferinde yeniden üretir
-android/app/src/main/assets/public/
-android/app/src/main/assets/capacitor.config.json
-android/app/src/main/assets/capacitor.plugins.json
-android/app/src/main/res/xml/config.xml
-android/capacitor-cordova-android-plugins/
 
 # İmza anahtarları ve gizli bilgiler: ASLA Git'e eklenmez
 *.jks
