@@ -7,9 +7,10 @@
 - `www/index.html`: uygulamanın tamamı (tek dosya, build adımı yok). Bölümler: yardımcılar, veri kaynağı, arama, ses, ekran, ayarlar.
 - `www/vendor/fonts/inter`: yazı tipi depoda (SIL OFL 1.1). Google Fonts ya da CDN kullanılmaz.
 - `android-ek/`: Android'e özgü Java (`SesPlugin.java`: telefonun ses tanıma penceresi + metin okuma motoru; `MainActivity.java`).
-- `scripts/android-ek.js`: `android-ek/` dosyalarını ve manifest'teki `<queries>` bloğunu Android projesine yerleştirir. `npm run android:hazirla` bunu ve `cap sync`'i çalıştırır.
+- `scripts/android-ek.js`: `android-ek/` dosyalarını, manifest'teki `<queries>` bloğunu ve konum iznini Android projesine yerleştirir, sürüm adını `package.json`'dan `build.gradle`'a yazar. `npm run android:hazirla` bunu ve `cap sync`'i çalıştırır.
 - `test/calistir.js`: Playwright testi (`npm test`). `test/ornek/yapay.html` elle kurulmuş örnek cevap; `test/ornek/gercek.json` sitenin gerçek cevabı (`npm run ornek:al`, kullanıcının bilgisayarında; bu ortamdan `aeo.org.tr`'ye erişim yok).
-- `android/`: `npx cap add android` ile kullanıcının bilgisayarında üretilir.
+- `android/`: `npx cap add android` ile kullanıcının bilgisayarında üretilir; depoya konmaz (`.gitignore`). Android'e özgü her şey `android-ek/` ve `scripts/android-ek.js` üzerinden gider.
+- Sürüm: `package.json` → `version`. `index.html` içindeki `APP_VERSION` aynı olmalıdır (test denetler).
 - Uygulama kimliği `app.simsec.eczane` (`capacitor.config.json`).
 
 ## Kararlar (kullanıcı)
@@ -23,6 +24,7 @@
 - **Arama seçili şehrin tamamında yapılır; ilçe seçiliyse o ilçedeki eşleşmeler üstte**, diğerleri "Diğer ilçelerde" başlığıyla altta gösterilir (kullanıcı, 2026-11-22).
 - Birebir eşleşme yoksa benzer yazıma bakılır (`fuzzyMatch`: 5+ harfli sözcükte 1, 8+ harflide 2 harf fark; sayı ve kısa sözcük birebir). Benzer sonuçlar "tam eşleşme yok" diye gösterilir, altında "En yakını bul" kalır.
 - Konum araması ilin sınır kutusuyla sınırlanır (`SRC_AEO.bbox`); kutu dışında çıkan yer sayılmaz. Yeni kaynak eklenirse illerinin kutusunu vermelidir.
+- **Konumuma en yakın** (kullanıcı, 2026-11-22): `#locBtn` → `nearMe`, tarayıcının `navigator.geolocation`'ı (ayrı eklenti yok; izni Capacitor'ın WebView'ı sorar). Konum yalnız telefonda mesafe hesabında kullanılır, saklanmaz, dışarı gitmez. Şehir seçimine bakmaz, en yakın beş eczane. Ayarlar'dan kapatılır.
 - "Yol tarifi" Google Haritalar'ın yol tarifi bağlantısını açar (`maps/dir`, başlangıç verilmez).
 - **API şimdilik eklenmiyor; kaynak yalnız Oda** (kullanıcı, 2026-11-22: "böyle kalsın gibi"; kesinleştirilecek). Bakılanlar: NosyAPI ayda 500 ücretsiz kredi, 6 $ / 5.000 kredi, nöbet başlangıç / bitiş saati veriyor; anahtar uygulamaya gömülemeyeceği için ara sunucu gerekir.
 
@@ -31,6 +33,7 @@
 - Siteden gelen her metin HTML'e yalnız `escapeHtml` ile yazılır; `tel:` ve harita bağlantıları kodda üretilir, siteden gelen bağlantı olduğu gibi kullanılmaz.
 - Tarayıcının `alert` / `confirm` / `prompt` kutuları kullanılmaz.
 - Renkler değişkenle yazılır (`var(--text)`, `var(--green)` …); her arayüz değişikliği koyu ve açık temada, 390 px ve 360 px genişlikte denenir.
+- Sayfada içerik güvenlik politikası var (`<meta http-equiv="Content-Security-Policy">`): yeni bir siteye istek eklenirse `connect-src`'ye yazılır; dışarıdan betik, stil, resim yüklenmez.
 - Ağ isteği `httpGet` ile yapılır: uygulamada `CapacitorHttp` (CORS'a takılmaz), tarayıcıda `fetch`.
 - Yeni izin, ağ isteği ya da veriyi dışarı gönderen özellik eklenirse Ayarlar → "Veri ve hakkında" metni de güncellenir.
 
@@ -44,6 +47,7 @@
 
 - **Telefonda liste gelmedi (2026-11-21):** ilk kurulumda "Liste alınamadı". PR #1 hata ayrıntısını ekrana yazdırdı; ayrıntı "sayfa geldi ama içinde eczane bulunamadı" çıktı (liste sayfada değil, ayrı istekteymiş). PR #2 `getPharmacies` isteğine geçti; **telefonda doğrulanacak.**
 - **Açılır kutular telefonda açılmadı (2026-11-21, kullanıcı):** neden bilinmiyor. PR #2'de `<select>` kaldırıldı; şehir / ilçe seçimi uygulamanın kendi alt penceresiyle (`openPicker`, `#pickBd`; geri tuşu `closePicker`). **Yeni seçim alanı eklenirse `<select>` kullanılmaz.**
+- **Telefonda doğrulanacak (PR #5):** içerik güvenlik politikası uygulamayı bozmuyor mu (liste geliyor, ses çalışıyor mu); "Konumuma en yakın" izin soruyor ve sonuç veriyor mu. Politika sorun çıkarırsa `index.html` başındaki tek `<meta http-equiv="Content-Security-Policy">` satırı kaldırılır.
 - Telefonda henüz denenmeyenler: mikrofon (`Ses.dinle`), sesli okuma (`Ses.oku`; Türkçe ses yoksa `dilYok` uyarısı, motor hazırlanırken art arda okuma), "Ara" ve "Yol tarifi" düğmeleri, geri tuşu.
 - `test/ornek/gercek.json` yok: ayrıştırma yalnız elle kurulmuş örnekle deneniyor. Kullanıcı `npm run ornek:al` çalıştırıp dosyayı depoya eklerse gerçek yapıyla da denenir.
 - Tarih seçimi yok: site hangi günün nöbetini gösteriyorsa o gelir.

@@ -36,11 +36,15 @@ const CAP = () => {
   const tarayici = await chromium.launch();
   let gecen = 0, kalan = 0;
 
-  // ayar: { saat, cevap(url) → html | null (bağlantı yok) | {bozuk}, yer: [lat, lon] | null, sahteSaat }
+  // ayar: { konum: [lat, lon] (telefon konumu; verilmezse izin yok),
+  //         saat, cevap(url) → html | null (bağlantı yok) | {bozuk}, yer: [lat, lon] | null, sahteSaat }
   async function sayfaAc(ayar) {
-    const ctx = await tarayici.newContext({ viewport: { width: 390, height: 800 }, locale: 'tr-TR', timezoneId: 'Europe/Istanbul' });
+    const ctx = await tarayici.newContext(Object.assign({ viewport: { width: 390, height: 800 }, locale: 'tr-TR', timezoneId: 'Europe/Istanbul' },
+      ayar.konum ? { geolocation: { latitude: ayar.konum[0], longitude: ayar.konum[1] }, permissions: ['geolocation'] } : {}));
     const page = await ctx.newPage();
-    const durum = { ayar, istekler: [], yerIstek: [] };
+    const durum = { ayar, istekler: [], yerIstek: [], hata: [] };
+    page.on('console', m => { if (m.type() === 'error' && !/net::ERR_INTERNET_DISCONNECTED/.test(m.text())) durum.hata.push(m.text()); });
+    page.on('pageerror', e => durum.hata.push(String(e)));
     await page.addInitScript(CAP);
     if (ayar.sahteSaat) await page.clock.install({ time: new Date(ayar.saat) });
     else await page.clock.setFixedTime(new Date(ayar.saat));
@@ -89,6 +93,11 @@ const CAP = () => {
     await page.click('#cityBtn'); await page.click('#pickList .opt:has-text("Kırıkkale")');
     assert.strictEqual((await adlar(page)).length, 3);
     assert.deepStrictEqual((await page.locator('#list .p-dist').allInnerTexts()).sort(), ['Keskin', 'Merkez']);
+    // İçerik güvenlik politikası hiçbir şeyi engellemedi, yazı tipi yüklendi, sürüm package.json ile aynı
+    assert.deepStrictEqual(durum.hata, []);
+    assert.strictEqual(await page.evaluate(() => document.fonts.check('16px Inter')), true);
+    await page.click('#appTabs button[data-tab="ayarlar"]');
+    assert.strictEqual(await metin(page, '#aboutVer'), 'Sürüm ' + require('../package.json').version);
     await ctx.close();
   });
 
@@ -233,6 +242,56 @@ const CAP = () => {
     await page.waitForSelector('#resultBox.warn:not([hidden])');
     assert.ok((await metin(page, '#resultText')).includes('diye bir yer bulunamadı'));
     assert.strictEqual(await page.locator('#list .ph').count(), 0);
+    await ctx.close();
+  });
+
+  await dene('konumuma en yakın: beş eczane mesafeyle gelir, şehir seçimine bakmaz, konum dışarı gitmez', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, konum: [39.8465, 33.5160] });
+    await page.waitForSelector('#list .ph');
+    await page.click('#locBtn');                                                            // seçili şehir Ankara, konum Kırıkkale
+    await page.waitForSelector('#list .ph.near');
+    assert.strictEqual((await adlar(page)).length, 5);
+    assert.strictEqual((await adlar(page))[0], 'MERKEZ ECZANESİ');
+    assert.strictEqual(await page.locator('#list .ph.near .p-dist').first().innerText(), '100 m');
+    assert.ok((await metin(page, '#resultText')).includes('Konumunuza en yakın 5 nöbetçi eczane'));
+    assert.strictEqual(await metin(page, '#listTitle'), 'Size en yakın');
+    assert.strictEqual(durum.yerIstek.length, 0);
+    assert.strictEqual(durum.istekler.length, 1);
+    await page.click('#resultClose');                                                       // listeye dönüş
+    await page.waitForSelector('#resultBox', { state: 'hidden' });
+    assert.strictEqual(await page.locator('#list .ph.near').count(), 0);
+    // Ayarlar'dan kapatılınca düğme gizlenir
+    await page.click('#appTabs button[data-tab="ayarlar"]');
+    await page.locator('#setLoc').uncheck();
+    await page.click('#appTabs button[data-tab="liste"]');
+    assert.strictEqual(await page.locator('#locBtn').isHidden(), true);
+    assert.deepStrictEqual(durum.hata, []);
+    await ctx.close();
+  });
+
+  await dene('konumuma en yakın: izin verilmezse açıklama çıkar, liste bozulmaz', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY });
+    await page.waitForSelector('#list .ph');
+    await page.click('#locBtn');
+    await page.waitForSelector('#resultBox.warn:not([hidden])');
+    assert.ok((await metin(page, '#resultText')).includes('Konum izni verilmedi'));
+    await page.click('#resultClose');
+    await page.waitForSelector('#list .ph');
+    assert.strictEqual((await adlar(page)).length, 5);
+    await ctx.close();
+  });
+
+  await dene('seçim penceresi: odak içeride döner, arkadaki sayfa etkisizdir, kapanınca düğmeye döner', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY });
+    await page.waitForSelector('#list .ph');
+    await page.click('#cityBtn');
+    const icinde = () => page.evaluate(() => document.getElementById('pickBd').contains(document.activeElement));
+    assert.strictEqual(await page.evaluate(() => document.querySelector('.app').inert && document.getElementById('appTabs').inert), true);
+    for (let i = 0; i < 6; i++) { await page.keyboard.press('Tab'); assert.strictEqual(await icinde(), true, 'Tab ' + i); }
+    for (let i = 0; i < 6; i++) { await page.keyboard.press('Shift+Tab'); assert.strictEqual(await icinde(), true, 'Shift+Tab ' + i); }
+    await page.keyboard.press('Escape');
+    assert.strictEqual(await page.evaluate(() => document.querySelector('.app').inert || document.getElementById('appTabs').inert), false);
+    assert.strictEqual(await page.evaluate(() => document.activeElement.id), 'cityBtn');
     await ctx.close();
   });
 
