@@ -198,6 +198,10 @@
     border-radius:18px;padding:14px 14px 12px 14px;margin-bottom:10px;box-shadow:var(--shadow);
   }
   .ph.near{border-left-color:var(--amber);}
+  .sub-head{margin:16px 4px 10px;font-size:13px;font-weight:700;color:var(--text-soft);}
+  .sub-head:first-child{margin-top:0;}
+  .more{text-align:center;margin:14px 0 4px;font-size:13.5px;color:var(--text-soft);}
+  .more .btn{display:block;margin:8px auto 0;}
   .ph .p-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
   .ph .p-name{font-size:16px;font-weight:800;letter-spacing:-0.01em;overflow-wrap:anywhere;}
   .ph .p-dist{flex:none;font-size:11.5px;font-weight:700;color:var(--accent-text);background:var(--accent-soft);border-radius:999px;padding:4px 10px;white-space:nowrap;}
@@ -544,6 +548,8 @@ const SRC_AEO = {
   // Sabah nöbet değişene kadar bir önceki günün listesini kendisi verir ve bunu bir uyarı satırıyla söyler.
   listUrl(date){ return 'https://www.aeo.org.tr/getPharmacies/' + date; },
   cities: ['Ankara', 'Kırıkkale'],
+  // İl sınırını saran kutu [batı, güney, doğu, kuzey]: konum araması bununla sınırlanır.
+  bbox: { 'Ankara': [30.8, 38.6, 34.1, 40.8], 'Kırıkkale': [33.2, 39.2, 34.5, 40.4] },
   cityOf(district, address){
     if(KIRIKKALE_DISTRICTS.has(norm(district))) return 'Kırıkkale';
     if(district === OTHER && /kirikkale/.test(norm(address))) return 'Kırıkkale';
@@ -637,6 +643,7 @@ function hayOf(p){
   if(!p._hay){
     p._hay = ' ' + normAddr(p.name + ' ' + p.address + ' ' + p.note + ' ' + p.district) + ' ';
     p._hayJ = p._hay.replace(/ /g, '');
+    p._words = Array.from(new Set(p._hay.trim().split(' ')));
   }
   return p;
 }
@@ -651,25 +658,59 @@ function matchScore(p, q){
   if(q.core.every(t => p._hay.includes(' ' + t))) return 1;                // her sözcük bir sözcüğün başında
   return 0;
 }
-// Seçili şehrin bütün nöbetçilerinde arar (ilçe seçimine bakmaz: cadde başka ilçede olabilir).
+// İki sözcük arasındaki harf farkı (ekleme / silme / değiştirme); max'ı aşarsa max + 1 döner.
+function editDist(a, b, max){
+  if(Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for(let i = 1; i <= a.length; i++){
+    const cur = [i]; let low = i;
+    for(let j = 1; j <= b.length; j++){
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if(cur[j] < low) low = cur[j];
+    }
+    if(low > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+// Benzer yazım ("cinah" ↔ "cinnah"): ses tanıma ve yazım hataları için. Kısa sözcük ve sayı birebir aranır.
+function fuzzyMatch(p, q){
+  hayOf(p);
+  return q.core.every(t => {
+    if(p._hay.includes(' ' + t)) return true;
+    if(t.length < 5 || /\d/.test(t)) return false;
+    const max = t.length >= 8 ? 2 : 1;
+    return p._words.some(w => editDist(t, w, max) <= max);
+  });
+}
+// Seçili şehrin bütün nöbetçilerinde arar (cadde başka ilçede olabilir); ilçe seçiliyse o ilçedekiler önce gelir.
+// Birebir eşleşme yoksa benzer yazıma bakar (fuzzy).
 function findMatches(text){
   const q = parseQuery(text);
-  if(!data || !q.core.length) return [];
-  const scored = data.list.filter(p => p.city === selCity).map(p => ({ p, s: matchScore(p, q) })).filter(x => x.s > 0);
+  if(!data || !q.core.length) return { items: [], fuzzy: false };
+  const inCity = data.list.filter(p => p.city === selCity);
+  let scored = inCity.map(p => ({ p, s: matchScore(p, q) })).filter(x => x.s > 0), fuzzy = false;
+  if(!scored.length){ scored = inCity.filter(p => fuzzyMatch(p, q)).map(p => ({ p, s: 1 })); fuzzy = scored.length > 0; }
   const best = scored.reduce((m, x) => Math.max(m, x.s), 0);
   const keep = (q.type && best === 3) ? scored.filter(x => x.s === 3) : scored;
-  return keep.sort((a, b) => b.s - a.s).map(x => ({ p: x.p }));
+  const here = x => (selDist !== ALL && x.p.district === selDist) ? 1 : 0;
+  return { items: keep.sort((a, b) => (here(b) - here(a)) || (b.s - a.s)).map(x => ({ p: x.p })), fuzzy };
 }
 // Yer adını koordinata çevirir (OpenStreetMap Nominatim; anahtar gerekmez).
+// Arama ilin sınır kutusuyla sınırlanır: aynı adlı yer başka ildeyse sonuç sayılmaz.
 async function geocode(place, city){
-  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=tr&accept-language=tr&q='
-    + encodeURIComponent(place + ', ' + city + ', Türkiye');
+  const bb = sourceOf(city).bbox && sourceOf(city).bbox[city];
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=tr&accept-language=tr'
+    + (bb ? '&bounded=1&viewbox=' + [bb[0], bb[3], bb[2], bb[1]].join(',') : '')
+    + '&q=' + encodeURIComponent(place + ', ' + city + ', Türkiye');
   let r = await httpGet(url, { 'Accept': 'application/json', 'User-Agent': APP_UA });
   if(typeof r === 'string') r = JSON.parse(r);
   const hit = Array.isArray(r) ? r[0] : null;
   if(!hit) return null;
   const lat = parseFloat(hit.lat), lng = parseFloat(hit.lon);
-  return (isFinite(lat) && isFinite(lng)) ? { lat, lng } : null;
+  if(!isFinite(lat) || !isFinite(lng)) return null;
+  if(bb && (lng < bb[0] || lng > bb[2] || lat < bb[1] || lat > bb[3])) return null;
+  return { lat, lng };
 }
 function nearestTo(pt, n){
   return data.list.filter(p => p.city === selCity && p.lat != null)
@@ -691,13 +732,16 @@ async function runSearch(text, opts){
   if(!data){ toast('Liste henüz yüklenmedi'); return; }
   const q = parseQuery(raw);
   const shown = q.clean || raw;
-  const m = findMatches(raw);
+  const found = opts.near ? { items: [], fuzzy: false } : findMatches(raw);   // near: benzerler beğenilmedi, doğrudan en yakına bak
+  const m = found.items;
   if(m.length){
     const first = m[0].p;
-    const speech = m.length === 1
+    const speech = found.fuzzy
+      ? shown + ' için tam eşleşme bulunamadı. Benzer adres: ' + speechName(first) + '. Adres: ' + speechAddr(first) + '.'
+      : m.length === 1
       ? shown + ' için nöbetçi eczane: ' + speechName(first) + '. Adres: ' + speechAddr(first) + '.'
       : shown + ' için ' + m.length + ' nöbetçi eczane var. İlki ' + speechName(first) + '. Adres: ' + speechAddr(first) + '.';
-    searchRes = { q: shown, mode: 'match', items: m, speech };
+    searchRes = { q: shown, mode: 'match', items: m, speech, fuzzy: found.fuzzy };
     render(); if(opts.voice) autoSpeak(speech);
     return;
   }
@@ -772,7 +816,7 @@ async function speak(text){
   if(!text) return;
   const P = sesPlugin();
   if(P && P.oku){
-    try{ const r = await P.oku({ metin: text, dil: 'tr-TR', hiz: speakRate() }); if(r && r.yok) toast('Bu telefonda sesli okuma bulunamadı'); }
+    try{ const r = await P.oku({ metin: text, dil: 'tr-TR', hiz: speakRate() }); if(r && r.dilYok) toast('Telefonda Türkçe ses yüklü değil (telefon ayarları → metin okuma)'); else if(r && r.yok) toast('Bu telefonda sesli okuma bulunamadı'); }
     catch(e){ toast('Sesli okuma başlatılamadı'); }
     return;
   }
@@ -802,8 +846,9 @@ function phoneText(phone){
   return m ? '0 (' + m[1] + ') ' + m[2] + ' ' + m[3] + ' ' + m[4] : String(phone || '');
 }
 function mapHref(p){
-  if(p.lat != null && p.lng != null) return 'https://www.google.com/maps/search/?api=1&query=' + p.lat + ',' + p.lng;
-  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ' ' + p.address);
+  // Yol tarifi: başlangıç verilmez, harita uygulaması telefonun konumundan başlatır.
+  if(p.lat != null && p.lng != null) return 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng;
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(p.name + ' ' + p.address);
 }
 const ICO_CALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>';
 const ICO_MAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.800 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>';
@@ -894,7 +939,12 @@ function render(){
   if(searchRes && !(searchRes.mode === 'none' && searchRes.typing)){
     const q = '<b>“' + escapeHtml(searchRes.q) + '”</b>';
     let t = '';
-    if(searchRes.mode === 'match') t = q + ' için ' + searchRes.items.length + ' nöbetçi eczane bulundu.';
+    if(searchRes.mode === 'match' && searchRes.fuzzy){ t = q + ' için tam eşleşme yok. Benzer adresler:'; box.classList.add('warn'); }
+    else if(searchRes.mode === 'match'){
+      const k = searchRes.items.filter(it => it.p.district === selDist).length;
+      t = q + ' için ' + searchRes.items.length + ' nöbetçi eczane bulundu'
+        + (selDist !== ALL ? ' (' + escapeHtml(selDist) + ' ilçesinde ' + (k || 'yok') + ')' : '') + '.';
+    }
     else if(searchRes.mode === 'busy') t = q + ' adresinde nöbetçi yok. En yakını aranıyor…';
     else if(searchRes.mode === 'near'){ t = q + ' adresinde nöbetçi eczane yok. En yakın ' + searchRes.items.length + ' eczane:'; box.classList.add('warn'); }
     else { t = searchRes.failed ? 'Konum aranamadı. İnternet bağlantısını kontrol edin.' : (searchRes.noPlace ? q + ' diye bir yer bulunamadı.' : q + ' için nöbetçi eczane bulunamadı.'); box.classList.add('warn'); }
@@ -927,6 +977,15 @@ function render(){
     } else {
       list.innerHTML = '<div class="empty"><b>Bu ilçede nöbetçi eczane görünmüyor</b>Komşu ilçelere ya da “Tüm ilçeler”e bakın.</div>';
     }
+  } else if(searchRes && searchRes.mode === 'match'){
+    // Seçili ilçedeki eşleşmeler üstte, diğerleri "Diğer ilçelerde" başlığıyla altta.
+    const mine = selDist === ALL ? items : items.filter(it => it.p.district === selDist);
+    const rest = selDist === ALL ? [] : items.filter(it => it.p.district !== selDist);
+    list.innerHTML = mine.map(cardHtml).join('')
+      + (rest.length ? '<div class="sub-head">Diğer ilçelerde</div>' + rest.map(cardHtml).join('') : '')
+      + (searchRes.fuzzy && lsGet(LS.near, '1') === '1'
+        ? '<div class="more">Aradığınız bunlar değilse<button class="btn" type="button" id="nearBtn">En yakını bul</button></div>' : '');
+    if($('nearBtn')) $('nearBtn').onclick = () => runSearch(query, { full: true, near: true });
   } else list.innerHTML = items.map(cardHtml).join('');
 
   const src = sourceOf(selCity);

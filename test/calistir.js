@@ -81,7 +81,7 @@ const CAP = () => {
     assert.strictEqual(await ilk.locator('.p-note').innerText(), 'Kuğulu Park karşısı');
     assert.strictEqual(await ilk.locator('.p-phone').innerText(), '0 (312) 555 01 01');
     assert.strictEqual(await ilk.locator('a.call').getAttribute('href'), 'tel:03125550101');
-    assert.strictEqual(await ilk.locator('.p-act a').nth(1).getAttribute('href'), 'https://www.google.com/maps/search/?api=1&query=39.9015,32.861');
+    assert.strictEqual(await ilk.locator('.p-act a').nth(1).getAttribute('href'), 'https://www.google.com/maps/dir/?api=1&destination=39.9015,32.861');
     // "Kazan" → Kahramankazan; telefon yalnız tel: bağlantısında olsa da okunur
     assert.ok((await page.locator('#list .p-dist').allInnerTexts()).includes('Kahramankazan'));
     assert.strictEqual(await page.locator('#list .ph', { hasText: 'ETLİK' }).locator('a.call').getAttribute('href'), 'tel:03125550303');
@@ -101,7 +101,7 @@ const CAP = () => {
     assert.strictEqual(await page.evaluate(() => window.__xss), undefined);
     assert.strictEqual(await kart.locator('a.call').getAttribute('href'), null);           // "abc" telefon değil
     const harita = await kart.locator('.p-act a').nth(1).getAttribute('href');             // 99.9 enlem geçersiz → adla arama
-    assert.ok(harita.startsWith('https://www.google.com/maps/search/?api=1&query=%3Cimg'), harita);
+    assert.ok(harita.startsWith('https://www.google.com/maps/dir/?api=1&destination=%3Cimg'), harita);
     assert.strictEqual(await page.locator('#list a[href^="javascript"]').count(), 0);
     await ctx.close();
   });
@@ -178,9 +178,61 @@ const CAP = () => {
     await page.waitForSelector('#list .ph.near');
     assert.strictEqual(durum.yerIstek.length, 1);
     assert.ok(durum.yerIstek[0].includes('q=Ovacık, Ankara, Türkiye'), durum.yerIstek[0]);
+    assert.ok(durum.yerIstek[0].includes('bounded=1&viewbox=30.8,40.8,34.1,38.6'), durum.yerIstek[0]);
     assert.strictEqual((await adlar(page))[0], 'ETLİK ECZANESİ');
     assert.strictEqual((await adlar(page)).length, 3);
     assert.strictEqual(await page.locator('#list .ph.near .p-dist').first().innerText(), '150 m');
+    await ctx.close();
+  });
+
+  await dene('arama: seçili ilçedeki eşleşme üstte, diğerleri "Diğer ilçelerde" başlığı altında', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY });
+    await page.waitForSelector('#list .ph');
+    await page.fill('#searchInput', 'etlik');
+    await page.waitForSelector('#resultBox:not([hidden])');
+    assert.deepStrictEqual(await adlar(page), ['ETLİK ECZANESİ', 'KAZAN ECZANESİ']);        // ilçe seçili değil: başlık yok
+    assert.strictEqual(await page.locator('#list .sub-head').count(), 0);
+    await page.click('#searchClear');
+    await page.click('#distBtn'); await page.click('#pickList .opt:has-text("Kahramankazan")');
+    await page.fill('#searchInput', 'etlik');
+    await page.waitForSelector('#list .sub-head');
+    assert.deepStrictEqual(await page.locator('#list > *').evaluateAll(l => l.map(e => e.className === 'sub-head' ? '— ' + e.textContent : e.querySelector('.p-name').textContent)),
+      ['KAZAN ECZANESİ', '— Diğer ilçelerde', 'ETLİK ECZANESİ']);
+    assert.ok((await metin(page, '#resultText')).includes('2 nöbetçi eczane bulundu (Kahramankazan ilçesinde 1)'));
+    await page.fill('#searchInput', 'cinnah');                                              // seçili ilçede yok
+    await page.waitForSelector('#list .p-name:has-text("CİNNAH")');
+    assert.ok((await metin(page, '#resultText')).includes('(Kahramankazan ilçesinde yok)'));
+    assert.strictEqual(await page.locator('#list > *').first().innerText(), 'Diğer ilçelerde');
+    await ctx.close();
+  });
+
+  await dene('arama: yazım / ses tanıma hatasında benzer adres gelir, istenirse en yakına bakılır', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, yer: [39.9690, 32.8310] });
+    await page.waitForSelector('#list .ph');
+    await page.fill('#searchInput', 'cinah caddesi');
+    await page.waitForSelector('#resultBox.warn:not([hidden])');
+    assert.ok((await metin(page, '#resultText')).includes('tam eşleşme yok'));
+    assert.deepStrictEqual(await adlar(page), ['CİNNAH ÖRNEK ECZANESİ']);
+    await page.fill('#searchInput', 'yunuz emre');                                          // iki sözcük, biri hatalı
+    await page.waitForSelector('#list .p-name:has-text("ETLİK")');
+    await page.fill('#searchInput', 'no 13');                                               // sayı benzerlikle eşleşmez (No:12 var)
+    await page.waitForSelector('#list .empty');
+    await page.fill('#searchInput', 'cinah');
+    await page.waitForSelector('#list .more #nearBtn');
+    assert.strictEqual(durum.yerIstek.length, 0);
+    await page.click('#nearBtn');
+    await page.waitForSelector('#list .ph.near');
+    assert.strictEqual(durum.yerIstek.length, 1);
+    await ctx.close();
+  });
+
+  await dene('konum araması: il dışında çıkan yer sayılmaz', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, yer: [41.0082, 28.9784] });
+    await page.waitForSelector('#list .ph');
+    await page.fill('#searchInput', 'Ovacık'); await page.press('#searchInput', 'Enter');
+    await page.waitForSelector('#resultBox.warn:not([hidden])');
+    assert.ok((await metin(page, '#resultText')).includes('diye bir yer bulunamadı'));
+    assert.strictEqual(await page.locator('#list .ph').count(), 0);
     await ctx.close();
   });
 
