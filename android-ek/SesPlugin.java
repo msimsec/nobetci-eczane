@@ -22,7 +22,8 @@ import java.util.Locale;
  * Okuma: telefonun kendi metin okuma motoru (TextToSpeech).
  * durum():                 { var } — telefonda ses tanıma var mı (yoksa mikrofon düğmesi gösterilmez).
  * dinle({dil, ipucu}):     { metin } — söylenen metin (vazgeçildiyse ""), ses tanıma yoksa { yok:true }.
- * oku({metin, dil, hiz}):  { ok } — metni sesli okur; okuma motoru yoksa { yok:true }.
+ * oku({metin, dil, hiz}):  { ok } — metni sesli okur; okuma motoru yoksa { yok:true }, motor var ama istenen dilin
+ *                          sesi yüklü değilse { dilYok:true } (başka dille okumaz).
  * sus():                   okumayı keser.
  */
 @CapacitorPlugin(name = "Ses")
@@ -30,6 +31,10 @@ public class SesPlugin extends Plugin {
 
     private TextToSpeech tts;
     private boolean ttsHazir = false;
+    // Motor hazırlanırken gelen okuma isteği burada bekler (yenisi gelirse eskisinin yerini alır); ikinci motor açılmaz.
+    private PluginCall bekleyen;
+    private String bMetin, bDil;
+    private float bHiz;
 
     private Intent niyet(String dil, String ipucu) {
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -85,7 +90,14 @@ public class SesPlugin extends Plugin {
     private void soyle(PluginCall call, String metin, String dil, float hiz) {
         JSObject r = new JSObject();
         try {
-            if (dil != null && !dil.isEmpty()) tts.setLanguage(Locale.forLanguageTag(dil));
+            if (dil != null && !dil.isEmpty()) {
+                int d = tts.setLanguage(Locale.forLanguageTag(dil));
+                if (d == TextToSpeech.LANG_MISSING_DATA || d == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    r.put("dilYok", true);
+                    call.resolve(r);
+                    return;
+                }
+            }
             tts.setSpeechRate(hiz);
             tts.speak(metin, TextToSpeech.QUEUE_FLUSH, null, "eczane");
             r.put("ok", true);
@@ -95,12 +107,38 @@ public class SesPlugin extends Plugin {
         call.resolve(r);
     }
 
+    private static JSObject yok() {
+        JSObject r = new JSObject();
+        r.put("yok", true);
+        return r;
+    }
+
+    // Okuma motoru hazır olunca (ya da kurulamayınca) çağrılır.
+    private synchronized void motorSonuc(TextToSpeech motor, int status) {
+        PluginCall c = bekleyen;
+        bekleyen = null;
+        if (status == TextToSpeech.SUCCESS) {
+            tts = motor;
+            ttsHazir = true;
+            if (c != null) soyle(c, bMetin, bDil, bHiz);
+            return;
+        }
+        ttsHazir = false;
+        if (tts == motor) tts = null;
+        try {
+            motor.shutdown();
+        } catch (Exception e) {
+            // kurulamayan motor zaten kapalı
+        }
+        if (c != null) c.resolve(yok());
+    }
+
     @PluginMethod
-    public void oku(final PluginCall call) {
-        final String metin = call.getString("metin", "");
-        final String dil = call.getString("dil", "tr-TR");
+    public synchronized void oku(PluginCall call) {
+        String metin = call.getString("metin", "");
+        String dil = call.getString("dil", "tr-TR");
         Float h = call.getFloat("hiz", 1.0f);
-        final float hiz = (h == null || h < 0.5f || h > 2.0f) ? 1.0f : h;
+        float hiz = (h == null || h < 0.5f || h > 2.0f) ? 1.0f : h;
         if (metin == null || metin.isEmpty()) {
             call.resolve(new JSObject());
             return;
@@ -109,24 +147,29 @@ public class SesPlugin extends Plugin {
             soyle(call, metin, dil, hiz);
             return;
         }
-        // İlk kullanım: okuma motoru hazır olunca konuşur.
+        // Motor henüz hazır değil: istek bekler, hazır olunca okunur.
+        if (bekleyen != null) bekleyen.resolve(new JSObject());
+        bekleyen = call;
+        bMetin = metin;
+        bDil = dil;
+        bHiz = hiz;
+        if (tts != null) return; // motor hazırlanıyor
         try {
-            tts = new TextToSpeech(getContext().getApplicationContext(), status -> {
-                ttsHazir = (status == TextToSpeech.SUCCESS);
-                if (ttsHazir) {
-                    soyle(call, metin, dil, hiz);
-                } else {
-                    tts = null;
-                    JSObject r = new JSObject();
-                    r.put("yok", true);
-                    call.resolve(r);
+            // Dinleyici yapıcı bitmeden de çağrılabilir (motor yoksa); o durumda sonuç yapıcıdan sonra işlenir.
+            final TextToSpeech[] m = new TextToSpeech[1];
+            final int[] erken = { Integer.MIN_VALUE };
+            m[0] = new TextToSpeech(getContext().getApplicationContext(), status -> {
+                synchronized (SesPlugin.this) {
+                    if (m[0] == null) erken[0] = status; else motorSonuc(m[0], status);
                 }
             });
+            tts = m[0];
+            if (erken[0] != Integer.MIN_VALUE) motorSonuc(m[0], erken[0]);
         } catch (Exception e) {
             tts = null;
-            JSObject r = new JSObject();
-            r.put("yok", true);
-            call.resolve(r);
+            ttsHazir = false;
+            bekleyen = null;
+            call.resolve(yok());
         }
     }
 
@@ -152,6 +195,7 @@ public class SesPlugin extends Plugin {
         }
         tts = null;
         ttsHazir = false;
+        bekleyen = null;
         super.handleOnDestroy();
     }
 }
