@@ -48,6 +48,12 @@ const CAP = () => {
     page.on('console', m => { if (m.type() === 'error' && !/net::ERR_INTERNET_DISCONNECTED/.test(m.text())) durum.hata.push(m.text()); });
     page.on('pageerror', e => durum.hata.push(String(e)));
     await page.addInitScript(CAP);
+    // Ses eklentisi taklidi: çağrıları kaydeder; okuma bitişini test tetikler (window.__ses.bitir(kimlik)).
+    if (ayar.ses) await page.addInitScript(() => {
+      const k = window.__ses = { oku: [], sus: 0, dinle: null, bitir: id => k.dinle && k.dinle({ kimlik: id }) };
+      window.Capacitor.Plugins.Ses = { durum: async () => ({ var: false }), oku: async o => { k.oku.push(o); return { ok: true }; },
+        sus: async () => { k.sus++; }, addListener: (ad, fn) => { if (ad === 'okumaBitti') k.dinle = fn; } };
+    });
     if (ayar.sahteSaat) await page.clock.install({ time: new Date(ayar.saat) });
     else await page.clock.setFixedTime(new Date(ayar.saat));
     await ctx.route('https://www.aeo.org.tr/**', async route => {
@@ -402,6 +408,31 @@ const CAP = () => {
     assert.strictEqual((await adlar(page))[0], 'SOYLU ECZANESİ');
     await page.click('#resultClose');
     assert.strictEqual(await metin(page, '#cityBtn'), 'Kayseri');
+    await ctx.close();
+  });
+
+  await dene('sesli okuma: hoparlör düğmesi okurken "durdur" olur, basınca okuma kesilir, bitince kendiliğinden döner', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, ses: true });
+    await page.waitForSelector('#list .ph');
+    await page.fill('#searchInput', 'cinnah'); await page.press('#searchInput', 'Enter');
+    await page.waitForSelector('#speakBtn:not([hidden])');
+    const durumu = () => page.evaluate(() => ({ on: document.getElementById('speakBtn').classList.contains('on'),
+      ad: document.getElementById('speakBtn').getAttribute('aria-label'), oku: window.__ses.oku.length, sus: window.__ses.sus }));
+    assert.deepStrictEqual(await durumu(), { on: false, ad: 'Sonucu sesli oku', oku: 0, sus: 0 });   // yazılı aramada kendiliğinden okumaz
+    await page.click('#speakBtn');
+    assert.deepStrictEqual(await durumu(), { on: true, ad: 'Okumayı durdur', oku: 1, sus: 0 });
+    await page.click('#speakBtn');                                                          // okurken basınca durur
+    let d = await durumu();
+    assert.deepStrictEqual([d.on, d.ad, d.oku], [false, 'Sonucu sesli oku', 1]); assert.ok(d.sus >= 1);
+    await page.click('#speakBtn');                                                          // yeniden okut, bitiş haberi gelsin
+    assert.strictEqual((await durumu()).on, true);
+    await page.evaluate(() => window.__ses.bitir('eski-okuma'));                            // başka okumanın haberi sayılmaz
+    assert.strictEqual((await durumu()).on, true);
+    await page.evaluate(() => window.__ses.bitir(window.__ses.oku[window.__ses.oku.length - 1].kimlik));
+    assert.strictEqual((await durumu()).on, false);
+    await page.click('#speakBtn');                                                          // okurken arama kapatılırsa da durur
+    await page.click('#resultClose');
+    d = await durumu(); assert.strictEqual(d.on, false); assert.ok(d.sus >= 2);
     await ctx.close();
   });
 

@@ -23,7 +23,7 @@ npm run android:ac
 
 1. `npm install` Capacitor'ı indirir.
 2. `npx cap add android` `android/` klasörünü üretir.
-3. `npm run android:hazirla` ses eklentisini, `<queries>` bloğunu ve konum iznini Android projesine yerleştirir, sürüm adını yazar, web kodunu kopyalar.
+3. `npm run android:hazirla` ses eklentisini, `<queries>` bloğunu, konum iznini, uygulama simgesini ve açılış ekranını Android projesine yerleştirir, sürüm adını yazar, web kodunu kopyalar.
 4. `npm run android:ac` projeyi Android Studio'da açar; telefon USB ile bağlıyken ▶ ile kurulur.
 
 ## Sonraki değişikliklerde

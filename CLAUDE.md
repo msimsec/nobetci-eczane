@@ -9,6 +9,7 @@
 - `android-ek/`: Android'e özgü Java (`SesPlugin.java`: telefonun ses tanıma penceresi + metin okuma motoru; `MainActivity.java`).
 - `scripts/android-ek.js`: `android-ek/` dosyalarını, manifest'teki `<queries>` bloğunu ve konum iznini Android projesine yerleştirir, sürüm adını `package.json`'dan `build.gradle`'a yazar. `npm run android:hazirla` bunu ve `cap sync`'i çalıştırır.
 - `test/calistir.js`: Playwright testi (`npm test`). `test/ornek/yapay.html` elle kurulmuş örnek cevap (Ankara); `kayseri.html` / `mersin.html` sitelerin 22.11.2026 sayfasından kısaltılmış kartlar; `test/ornek/gercek.json` sitenin gerçek cevabı (`npm run ornek:al`, kullanıcının bilgisayarında; bu ortamdan `aeo.org.tr`'ye erişim yok).
+- `android-ek/res/`: uygulama simgesi (uyarlanır simge katmanları + eski Android için PNG) ve açılış ekranı. `scripts/simge-uret.js` üretir (`npm run simge:uret`, çizim o dosyadadır; çıktılar depoda durur), `android-ek.js` Android projesine kopyalar ve açılış zemin rengini koyu yapar. Seçilen simge: konum iğnesi içinde artı, koyu zemin (kullanıcı, 2026-11-23; diğer taslaklar `tasarim/simge-ornekleri/`).
 - `android/`: `npx cap add android` ile kullanıcının bilgisayarında üretilir; depoya konmaz (`.gitignore`). Android'e özgü her şey `android-ek/` ve `scripts/android-ek.js` üzerinden gider.
 - Sürüm: `package.json` → `version`. `index.html` içindeki `APP_VERSION` aynı olmalıdır (test denetler).
 - Uygulama kimliği `app.simsec.eczane` (`capacitor.config.json`).
@@ -23,6 +24,7 @@
 - **API ile veri alma (NosyAPI vb.) sonra konuşulacak**; şimdi önerilmez. Yeni il / kaynak `SOURCES` dizisine eklenir, ekran kodu kaynağı bilmez.
 - **Tema: yalnız koyu ve açık** (+ sistem). Görev & Not uygulamasından yalnız görünüm örnek alındı (dolu üst kart, yuvarlak kartlar, alt sekme çubuğu); başka tema eklenmez.
 - **Sesli arama isteğe bağlı**: mikrofon düğmesi, sesli yanıt ve "bulunamazsa en yakını göster" Ayarlar'dan açılıp kapanır.
+- **Sesli okuma durdurulabilir** (kullanıcı, 2026-11-23): okuma sürerken sonuç satırındaki hoparlör düğmesi kırmızı "durdur" olur, basınca keser (`setSpeaking`, `stopSpeak`). Bitişi eklenti `okumaBitti { kimlik }` olayıyla bildirir; haber gelmezse düğme metin uzunluğuna göre bir süre sonra kendiliğinden döner. "Sesi dene" düğmesi de okurken "Durdur" olur.
 - **Adreste eşleşme yoksa en yakın nöbetçi**: söylenen yer OpenStreetMap Nominatim ile koordinata çevrilir (yer adı dışarı gider; ayarı kapatınca gitmez), en yakın üç eczane mesafesiyle gösterilir.
 - **Arama seçili şehrin tamamında yapılır; ilçe seçiliyse o ilçedeki eşleşmeler üstte**, diğerleri "Diğer ilçelerde" başlığıyla altta gösterilir (kullanıcı, 2026-11-22).
 - Birebir eşleşme yoksa benzer yazıma bakılır (`fuzzyMatch`: 5+ harfli sözcükte 1, 8+ harflide 2 harf fark; sayı ve kısa sözcük birebir). Benzer sonuçlar "tam eşleşme yok" diye gösterilir, altında "En yakını bul" kalır.
@@ -56,4 +58,4 @@
 - `test/ornek/gercek.json` yok: ayrıştırma yalnız elle kurulmuş örnekle deneniyor. Kullanıcı `npm run ornek:al` çalıştırıp dosyayı depoya eklerse gerçek yapıyla da denenir.
 - Tarih seçimi yok: site hangi günün nöbetini gösteriyorsa o gelir.
 - Mağazada yayın düşünülürse Ankara Eczacı Odası'ndan yazılı izin alınması önerildi.
-- Simge ve açılış ekranı Capacitor'ın varsayılanı; tasarlanmadı.
+- Simge ve açılış ekranı telefonda görülmedi (PR ile eklendi; Capacitor'ın gerçek şablonunda betik denendi, derleme yapılmadı).
