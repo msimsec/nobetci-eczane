@@ -23,6 +23,7 @@
 - **API ile veri alma (NosyAPI vb.) sonra konuşulacak**; şimdi önerilmez. Yeni il / kaynak `SOURCES` dizisine eklenir, ekran kodu kaynağı bilmez.
 - **Tema: yalnız koyu ve açık** (+ sistem). Görev & Not uygulamasından yalnız görünüm örnek alındı (dolu üst kart, yuvarlak kartlar, alt sekme çubuğu); başka tema eklenmez.
 - **Sesli arama isteğe bağlı**: mikrofon düğmesi, sesli yanıt ve "bulunamazsa en yakını göster" Ayarlar'dan açılıp kapanır.
+- **Sesli okuma durdurulabilir** (kullanıcı, 2026-11-23): okuma sürerken sonuç satırındaki hoparlör düğmesi kırmızı "durdur" olur, basınca keser (`setSpeaking`, `stopSpeak`). Bitişi eklenti `okumaBitti { kimlik }` olayıyla bildirir; haber gelmezse düğme metin uzunluğuna göre bir süre sonra kendiliğinden döner. "Sesi dene" düğmesi de okurken "Durdur" olur.
 - **Adreste eşleşme yoksa en yakın nöbetçi**: söylenen yer OpenStreetMap Nominatim ile koordinata çevrilir (yer adı dışarı gider; ayarı kapatınca gitmez), en yakın üç eczane mesafesiyle gösterilir.
 - **Arama seçili şehrin tamamında yapılır; ilçe seçiliyse o ilçedeki eşleşmeler üstte**, diğerleri "Diğer ilçelerde" başlığıyla altta gösterilir (kullanıcı, 2026-11-22).
 - Birebir eşleşme yoksa benzer yazıma bakılır (`fuzzyMatch`: 5+ harfli sözcükte 1, 8+ harflide 2 harf fark; sayı ve kısa sözcük birebir). Benzer sonuçlar "tam eşleşme yok" diye gösterilir, altında "En yakını bul" kalır.

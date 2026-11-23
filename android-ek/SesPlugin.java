@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -22,9 +23,10 @@ import java.util.Locale;
  * Okuma: telefonun kendi metin okuma motoru (TextToSpeech).
  * durum():                 { var } — telefonda ses tanıma var mı (yoksa mikrofon düğmesi gösterilmez).
  * dinle({dil, ipucu}):     { metin } — söylenen metin (vazgeçildiyse ""), ses tanıma yoksa { yok:true }.
- * oku({metin, dil, hiz}):  { ok } — metni sesli okur; okuma motoru yoksa { yok:true }, motor var ama istenen dilin
+ * oku({metin, dil, hiz, kimlik}):  { ok } — metni sesli okur; okuma motoru yoksa { yok:true }, motor var ama istenen dilin
  *                          sesi yüklü değilse { dilYok:true } (başka dille okumaz).
  * sus():                   okumayı keser.
+ * Olay "okumaBitti" { kimlik }: oku'ya verilen kimlikli okuma bitti, kesildi ya da hata verdi (düğmeyi eski haline döndürmek için).
  */
 @CapacitorPlugin(name = "Ses")
 public class SesPlugin extends Plugin {
@@ -33,7 +35,7 @@ public class SesPlugin extends Plugin {
     private boolean ttsHazir = false;
     // Motor hazırlanırken gelen okuma isteği burada bekler (yenisi gelirse eskisinin yerini alır); ikinci motor açılmaz.
     private PluginCall bekleyen;
-    private String bMetin, bDil;
+    private String bMetin, bDil, bKimlik;
     private float bHiz;
 
     private Intent niyet(String dil, String ipucu) {
@@ -87,7 +89,13 @@ public class SesPlugin extends Plugin {
         call.resolve(r);
     }
 
-    private void soyle(PluginCall call, String metin, String dil, float hiz) {
+    private void bitti(String kimlik) {
+        JSObject o = new JSObject();
+        o.put("kimlik", kimlik == null ? "" : kimlik);
+        notifyListeners("okumaBitti", o);
+    }
+
+    private void soyle(PluginCall call, String metin, String dil, float hiz, String kimlik) {
         JSObject r = new JSObject();
         try {
             if (dil != null && !dil.isEmpty()) {
@@ -99,7 +107,7 @@ public class SesPlugin extends Plugin {
                 }
             }
             tts.setSpeechRate(hiz);
-            tts.speak(metin, TextToSpeech.QUEUE_FLUSH, null, "eczane");
+            tts.speak(metin, TextToSpeech.QUEUE_FLUSH, null, kimlik);
             r.put("ok", true);
         } catch (Exception e) {
             r.put("yok", true);
@@ -120,7 +128,26 @@ public class SesPlugin extends Plugin {
         if (status == TextToSpeech.SUCCESS) {
             tts = motor;
             ttsHazir = true;
-            if (c != null) soyle(c, bMetin, bDil, bHiz);
+            motor.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override
+                public void onStart(String id) {}
+
+                @Override
+                public void onDone(String id) {
+                    bitti(id);
+                }
+
+                @Override
+                public void onError(String id) {
+                    bitti(id);
+                }
+
+                @Override
+                public void onStop(String id, boolean yarida) {
+                    bitti(id);
+                }
+            });
+            if (c != null) soyle(c, bMetin, bDil, bHiz, bKimlik);
             return;
         }
         ttsHazir = false;
@@ -139,12 +166,13 @@ public class SesPlugin extends Plugin {
         String dil = call.getString("dil", "tr-TR");
         Float h = call.getFloat("hiz", 1.0f);
         float hiz = (h == null || h < 0.5f || h > 2.0f) ? 1.0f : h;
+        String kimlik = call.getString("kimlik", "eczane");
         if (metin == null || metin.isEmpty()) {
             call.resolve(new JSObject());
             return;
         }
         if (tts != null && ttsHazir) {
-            soyle(call, metin, dil, hiz);
+            soyle(call, metin, dil, hiz, kimlik);
             return;
         }
         // Motor henüz hazır değil: istek bekler, hazır olunca okunur.
@@ -153,6 +181,7 @@ public class SesPlugin extends Plugin {
         bMetin = metin;
         bDil = dil;
         bHiz = hiz;
+        bKimlik = kimlik;
         if (tts != null) return; // motor hazırlanıyor
         try {
             // Dinleyici yapıcı bitmeden de çağrılabilir (motor yoksa); o durumda sonuç yapıcıdan sonra işlenir.

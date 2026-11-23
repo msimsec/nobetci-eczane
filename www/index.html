@@ -187,6 +187,11 @@
   .result .r-text b{font-weight:700;}
   .result .r-btn{border:0;background:transparent;color:var(--text);width:36px;height:36px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;}
   .result .r-btn svg{width:20px;height:20px;}
+  /* Okuma sürerken hoparlör yerine durdur karesi görünür */
+  #speakBtn .i-stop{display:none;}
+  #speakBtn.on .i-stop{display:block;}
+  #speakBtn.on .i-play{display:none;}
+  #speakBtn.on{background:var(--danger);color:#fff;}
 
   .list-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 4px 10px;}
   .list-head h2{margin:0;font-size:15px;font-weight:700;color:var(--accent-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -342,7 +347,8 @@
     <div class="result" id="resultBox" hidden role="status" aria-live="polite">
       <div class="r-text" id="resultText"></div>
       <button class="r-btn" id="speakBtn" type="button" aria-label="Sonucu sesli oku" title="Sesli oku" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        <svg class="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        <svg class="i-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
       </button>
       <button class="r-btn" id="resultClose" type="button" aria-label="Aramayı kapat, listeye dön" title="Listeye dön">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -945,23 +951,42 @@ function voiceResult(text){
 }
 
 function speakRate(){ const r = parseFloat(lsGet(LS.rate, '1')); return (r >= 0.5 && r <= 2) ? r : 1; }
+// Okuma sürerken hoparlör düğmesi "durdur" olur; basınca okuma kesilir.
+let speaking = false, speakId = 0, speakTimer = null;
+function setSpeaking(on, text){
+  speaking = on; clearTimeout(speakTimer);
+  const b = $('speakBtn'); b.classList.toggle('on', on);
+  b.setAttribute('aria-label', on ? 'Okumayı durdur' : 'Sonucu sesli oku'); b.title = on ? 'Okumayı durdur' : 'Sesli oku';
+  $('speakTest').textContent = on ? 'Durdur' : 'Sesi dene';
+  // Bitiş haberi gelmezse düğme "durdur"da kalmasın: metnin uzunluğuna göre cömert bir süre sonra kendiliğinden döner.
+  if(on) speakTimer = setTimeout(() => setSpeaking(false), 4000 + String(text || '').length * 140 / speakRate());
+}
 async function speak(text){
   if(!text) return;
-  const P = sesPlugin();
+  const P = sesPlugin(), id = String(++speakId);
   if(P && P.oku){
-    try{ const r = await P.oku({ metin: text, dil: 'tr-TR', hiz: speakRate() }); if(r && r.dilYok) toast('Telefonda Türkçe ses yüklü değil (telefon ayarları → metin okuma)'); else if(r && r.yok) toast('Bu telefonda sesli okuma bulunamadı'); }
-    catch(e){ toast('Sesli okuma başlatılamadı'); }
+    setSpeaking(true, text);
+    let r = null, fail = false;
+    try{ r = await P.oku({ metin: text, dil: 'tr-TR', hiz: speakRate(), kimlik: id }); }catch(e){ fail = true; }
+    if(fail || (r && (r.yok || r.dilYok))){
+      if(id === String(speakId)) setSpeaking(false);
+      toast(fail ? 'Sesli okuma başlatılamadı' : r.dilYok ? 'Telefonda Türkçe ses yüklü değil (telefon ayarları → metin okuma)' : 'Bu telefonda sesli okuma bulunamadı');
+    }
     return;
   }
   if(window.speechSynthesis && window.SpeechSynthesisUtterance){
     try{
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text); u.lang = 'tr-TR'; u.rate = speakRate();
+      u.onend = u.onerror = () => { if(id === String(speakId)) setSpeaking(false); };
+      setSpeaking(true, text);
       window.speechSynthesis.speak(u);
-    }catch(e){}
+    }catch(e){ setSpeaking(false); }
   } else toast('Bu cihazda sesli okuma yok');
 }
 function stopSpeak(){
+  speakId++;                                             // süren okumanın bitiş haberi artık sayılmaz
+  setSpeaking(false);
   const P = sesPlugin();
   if(P && P.sus){ try{ P.sus(); }catch(e){} }
   else if(window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} }
@@ -1287,7 +1312,7 @@ $('micBtn').addEventListener('click', micListen);
 $('locBtn').addEventListener('click', nearMe);
 $('resultClose').addEventListener('click', () => { clearSearch(); render(); });
 $('setLoc').addEventListener('change', e => { lsSet(LS.loc, e.target.checked ? '1' : '0'); locShow(); });
-$('speakBtn').addEventListener('click', () => { if(searchRes) speak(searchRes.speech); });
+$('speakBtn').addEventListener('click', () => { if(speaking) stopSpeak(); else if(searchRes) speak(searchRes.speech); });
 $('searchClear').addEventListener('click', () => { clearSearch(); render(); $('searchInput').focus(); });
 let typeTimer = null;
 $('searchInput').addEventListener('input', e => {
@@ -1312,7 +1337,7 @@ $('defDistBtn').addEventListener('click', e => openPicker('İlçe · ' + defRead
 $('setMic').addEventListener('change', e => { lsSet(LS.mic, e.target.checked ? '1' : '0'); micShow(); });
 $('setSpeak').addEventListener('change', e => { lsSet(LS.speak, e.target.checked ? '1' : '0'); if(!e.target.checked) stopSpeak(); });
 $('setNear').addEventListener('change', e => { lsSet(LS.near, e.target.checked ? '1' : '0'); });
-$('speakTest').addEventListener('click', () => speak('Cinnah Caddesi için nöbetçi eczane: Örnek Eczanesi.'));
+$('speakTest').addEventListener('click', () => { if(speaking) stopSpeak(); else speak('Cinnah Caddesi için nöbetçi eczane: Örnek Eczanesi.'); });
 if(window.matchMedia){
   const mq = window.matchMedia('(prefers-color-scheme: light)');
   if(mq.addEventListener) mq.addEventListener('change', applyTheme);
@@ -1337,6 +1362,8 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden){ sche
 
   if(NATIVE_APP){
     const P = window.Capacitor.Plugins || {};
+    // Okuma bitince (ya da kesilince) eklenti haber verir; düğme hoparlöre döner.
+    if(P.Ses && P.Ses.addListener) P.Ses.addListener('okumaBitti', d => { if(d && d.kimlik === String(speakId)) setSpeaking(false); });
     // Geri tuşu: önce açık seçim penceresi, sonra arama kapanır, sonra Ayarlar'dan listeye dönülür, listede uygulamadan çıkılır.
     if(P.App && P.App.addListener){
       P.App.addListener('backButton', () => {
