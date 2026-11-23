@@ -9,6 +9,7 @@
 - `android-ek/`: Android'e özgü Java (`SesPlugin.java`: telefonun ses tanıma penceresi + metin okuma motoru; `MainActivity.java`).
 - `scripts/android-ek.js`: `android-ek/` dosyalarını, manifest'teki `<queries>` bloğunu ve konum iznini Android projesine yerleştirir, sürüm adını `package.json`'dan `build.gradle`'a yazar. `npm run android:hazirla` bunu ve `cap sync`'i çalıştırır.
 - `test/calistir.js`: Playwright testi (`npm test`). `test/ornek/yapay.html` elle kurulmuş örnek cevap (Ankara); `kayseri.html` / `mersin.html` sitelerin 22.11.2026 sayfasından kısaltılmış kartlar; `test/ornek/gercek.json` sitenin gerçek cevabı (`npm run ornek:al`, kullanıcının bilgisayarında; bu ortamdan `aeo.org.tr`'ye erişim yok).
+- `android-ek/res/`: uygulama simgesi (uyarlanır simge katmanları + eski Android için PNG) ve açılış ekranı. `scripts/simge-uret.js` üretir (`npm run simge:uret`, çizim o dosyadadır; çıktılar depoda durur), `android-ek.js` Android projesine kopyalar ve açılış zemin rengini koyu yapar. Seçilen simge: konum iğnesi içinde artı, koyu zemin (kullanıcı, 2026-11-23; diğer taslaklar `tasarim/simge-ornekleri/`).
 - `android/`: `npx cap add android` ile kullanıcının bilgisayarında üretilir; depoya konmaz (`.gitignore`). Android'e özgü her şey `android-ek/` ve `scripts/android-ek.js` üzerinden gider.
 - Sürüm: `package.json` → `version`. `index.html` içindeki `APP_VERSION` aynı olmalıdır (test denetler).
 - Uygulama kimliği `app.simsec.eczane` (`capacitor.config.json`).
@@ -57,4 +58,4 @@
 - `test/ornek/gercek.json` yok: ayrıştırma yalnız elle kurulmuş örnekle deneniyor. Kullanıcı `npm run ornek:al` çalıştırıp dosyayı depoya eklerse gerçek yapıyla da denenir.
 - Tarih seçimi yok: site hangi günün nöbetini gösteriyorsa o gelir.
 - Mağazada yayın düşünülürse Ankara Eczacı Odası'ndan yazılı izin alınması önerildi.
-- Simge ve açılış ekranı Capacitor'ın varsayılanı; tasarlanmadı.
+- Simge ve açılış ekranı telefonda görülmedi (PR ile eklendi; Capacitor'ın gerçek şablonunda betik denendi, derleme yapılmadı).

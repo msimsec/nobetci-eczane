@@ -7,7 +7,8 @@
     "android:hazirla": "node scripts/android-ek.js && cap sync android",
     "android:ac": "cap open android",
     "test": "node test/calistir.js",
-    "ornek:al": "node scripts/ornek-al.js"
+    "ornek:al": "node scripts/ornek-al.js",
+    "simge:uret": "node scripts/simge-uret.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

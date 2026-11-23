@@ -4,6 +4,8 @@
 //   3) Google'a otomatik uygulama yedeği kapatılır (allowBackup=false)
 //   4) Konum izni ("Konumuma en yakın" düğmesi; izin düğmeye basılınca sorulur)
 //   5) Sürüm adı package.json'dan build.gradle'a yazılır
+//   6) Simge ve açılış ekranı (android-ek/res/; "npm run simge:uret" ile üretilir) res/ altına kopyalanır,
+//      açılış ekranının zemin rengi koyu yapılır
 // Yinelenebilir: kaç kez çalıştırılırsa çalıştırılsın sonuç aynıdır. "npm run android:hazirla" bunu çağırır.
 const fs = require('fs');
 const path = require('path');
@@ -81,4 +83,28 @@ if (fs.existsSync(gradleYol)) {
   surumNot = /versionName\s+"/.test(g) ? 'sürüm adı ' + surum : 'build.gradle içinde versionName bulunamadı';
 }
 
-console.log('Android ekleri yerleştirildi: ' + path.relative(kok, javaHedef) + ' (SesPlugin, MainActivity), AndroidManifest.xml (<queries>, konum izni, allowBackup=false), ' + surumNot + '.');
+// 6) Simge ve açılış ekranı
+const resKaynak = path.join(kok, 'android-ek', 'res'), resHedef = path.join(ana, 'res');
+let simgeNot = 'android-ek/res yok, simge kopyalanmadı';
+if (fs.existsSync(resKaynak)) {
+  let n = 0;
+  (function kopyala(k, h) {
+    fs.mkdirSync(h, { recursive: true });
+    for (const e of fs.readdirSync(k, { withFileTypes: true })) {
+      if (e.isDirectory()) kopyala(path.join(k, e.name), path.join(h, e.name));
+      else { fs.copyFileSync(path.join(k, e.name), path.join(h, e.name)); n++; }
+    }
+  })(resKaynak, resHedef);
+  simgeNot = 'simge ve açılış ekranı (' + n + ' dosya)';
+  // Android 12+ açılışta simgeyi düz bir zemin üstünde gösterir; zemin uygulamanın koyu rengi olsun.
+  const stilYol = path.join(resHedef, 'values', 'styles.xml');
+  if (fs.existsSync(stilYol)) {
+    const st = fs.readFileSync(stilYol, 'utf8');
+    if (!st.includes('windowSplashScreenBackground')) {
+      const st2 = st.replace(/(<style name="AppTheme\.NoActionBarLaunch" parent="Theme\.SplashScreen">)/, '$1\n        <item name="windowSplashScreenBackground">#10131B</item>');
+      if (st2 !== st) fs.writeFileSync(stilYol, st2); else simgeNot += ', açılış zemin rengi yazılamadı (stil bulunamadı)';
+    }
+  }
+}
+
+console.log('Android ekleri yerleştirildi: ' + path.relative(kok, javaHedef) + ' (SesPlugin, MainActivity), AndroidManifest.xml (<queries>, konum izni, allowBackup=false), ' + surumNot + ', ' + simgeNot + '.');
