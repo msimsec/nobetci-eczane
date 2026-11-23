@@ -322,8 +322,8 @@ const CAP = () => {
     await page.waitForSelector('#list .p-name:has-text("ŞUBAT")');
     assert.strictEqual(durum.istekler[1], 'https://www.kayserieo.org.tr/nobetci-eczaneler');
     assert.deepStrictEqual(await kartlar(page), [
-      'ŞUBAT ECZANESİ | Nöbet: 08:30 – yarın 08:30', 'SOYLU ECZANESİ | Nöbet: 08:30 – yarın 08:30',
-      'İSTASYON ECZANESİ | Nöbet: 08:30 – yarın 01:00', 'ÇAKMAK ECZANESİ | Nöbet: 08:30 – yarın 01:00']);
+      'ŞUBAT ECZANESİ | Nöbetçi · bitiş yarın 08:30', 'SOYLU ECZANESİ | Nöbetçi · bitiş yarın 08:30',
+      'İSTASYON ECZANESİ | Nöbetçi · bitiş yarın 01:00', 'ÇAKMAK ECZANESİ | Nöbetçi · bitiş yarın 01:00']);
     assert.deepStrictEqual(await page.locator('#list .p-dist').allInnerTexts(), ['Melikgazi', 'Kocasinan', 'Kocasinan', 'Talas']);
     const soylu = page.locator('#list .ph', { hasText: 'SOYLU' });
     assert.strictEqual(await soylu.locator('.p-addr').innerText(), 'GEVHER NESIBE MAH. GÖK GEÇIDI SOK. 13/D');
@@ -342,8 +342,8 @@ const CAP = () => {
     await page.reload();
     await page.waitForSelector('#list .ph.off');
     assert.deepStrictEqual(await kartlar(page), [
-      'ŞUBAT ECZANESİ | Nöbet: dün 08:30 – 08:30', 'SOYLU ECZANESİ | Nöbet: dün 08:30 – 08:30',
-      'İSTASYON ECZANESİ | Nöbeti bitti · dün 08:30 – 01:00', 'ÇAKMAK ECZANESİ | Nöbeti bitti · dün 08:30 – 01:00']);
+      'ŞUBAT ECZANESİ | Nöbetçi · bitiş bugün 08:30', 'SOYLU ECZANESİ | Nöbetçi · bitiş bugün 08:30',
+      'İSTASYON ECZANESİ | Nöbeti bitti · bugün 01:00', 'ÇAKMAK ECZANESİ | Nöbeti bitti · bugün 01:00']);
     assert.strictEqual(await metin(page, '#heroCount'), '2');
     assert.strictEqual(await page.locator('#oldBox').isHidden(), true);
     // Son nöbet de bitince (08:30) liste eski sayılır
@@ -359,8 +359,8 @@ const CAP = () => {
     await sehirSec(page, 'Mersin');
     await page.waitForSelector('#list .p-name:has-text("DAMLA")');
     assert.deepStrictEqual(await kartlar(page), [
-      'DAMLA ECZANESİ | Nöbet: 08:00 – yarın 08:00', 'SAĞLAM ECZANESİ | Nöbet: 08:00 – yarın 00:00', 'SOFİA ECZANESİ | Nöbet: 08:00 – yarın 08:00',
-      'DARENDE ECZANESİ | Nöbet: 08:00 – yarın 08:00', 'SUSANOĞLU ECZANESİ | Nöbeti bitti · 08:00 – 19:00']);
+      'DAMLA ECZANESİ | Nöbetçi · bitiş yarın 08:00', 'SAĞLAM ECZANESİ | Nöbetçi · bitiş bugün 24:00', 'SOFİA ECZANESİ | Nöbetçi · bitiş yarın 08:00',
+      'DARENDE ECZANESİ | Nöbetçi · bitiş yarın 08:00', 'SUSANOĞLU ECZANESİ | Nöbeti bitti · bugün 19:00']);
     assert.deepStrictEqual(await page.locator('#list .p-dist').allInnerTexts(), ['Toroslar', 'Yenişehir', 'Mezitli', 'Tarsus', 'Silifke']);
     assert.strictEqual(await page.locator('#list .ph', { hasText: 'DAMLA' }).locator('.p-note').innerText(), 'ÇUKUROVA İLKOKULU VE TOZKOPARAN ASM KARŞISI');
     assert.strictEqual(await page.locator('#list .ph', { hasText: 'SOFİA' }).locator('.p-note').count(), 0);
@@ -375,10 +375,10 @@ const CAP = () => {
     await page.reload();
     await page.waitForSelector('#list .p-name:has-text("YARINKİ")');
     assert.deepStrictEqual(await kartlar(page), [
-      'DAMLA ECZANESİ | Nöbet: dün 08:00 – 08:00', 'SOFİA ECZANESİ | Nöbet: dün 08:00 – 08:00', 'DARENDE ECZANESİ | Nöbet: dün 08:00 – 08:00',
-      'YARINKİ ECZANESİ | Nöbeti henüz başlamadı · 08:00 – yarın 08:00', 'ÖBÜR ECZANESİ | Nöbeti henüz başlamadı · 08:00 – yarın 00:00',
-      'BAŞKA ECZANESİ | Nöbeti henüz başlamadı · 08:00 – yarın 08:00', 'DİĞER ECZANESİ | Nöbeti henüz başlamadı · 08:00 – yarın 08:00',
-      'SON ECZANESİ | Nöbeti henüz başlamadı · 08:00 – 19:00']);
+      'DAMLA ECZANESİ | Nöbetçi · bitiş bugün 08:00', 'SOFİA ECZANESİ | Nöbetçi · bitiş bugün 08:00', 'DARENDE ECZANESİ | Nöbetçi · bitiş bugün 08:00',
+      'YARINKİ ECZANESİ | Henüz nöbetçi değil · başlangıç bugün 08:00', 'ÖBÜR ECZANESİ | Henüz nöbetçi değil · başlangıç bugün 08:00',
+      'BAŞKA ECZANESİ | Henüz nöbetçi değil · başlangıç bugün 08:00', 'DİĞER ECZANESİ | Henüz nöbetçi değil · başlangıç bugün 08:00',
+      'SON ECZANESİ | Henüz nöbetçi değil · başlangıç bugün 08:00']);
     assert.deepStrictEqual(durum.hata, []);
     await ctx.close();
   });
