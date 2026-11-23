@@ -721,9 +721,16 @@ function dutyState(p){ const n = Date.now(); return (p.to && n >= p.to) ? 2 : (p
 function dayWord(t){
   const a = new Date(t), b = new Date();
   const d = Math.round((new Date(a.getFullYear(), a.getMonth(), a.getDate()) - new Date(b.getFullYear(), b.getMonth(), b.getDate())) / 864e5);
-  return d === 0 ? '' : d === 1 ? 'yarın ' : d === -1 ? 'dün ' : a.getDate() + ' ' + AYLAR[a.getMonth()] + ' ';
+  return d === 0 ? 'bugün ' : d === 1 ? 'yarın ' : d === -1 ? 'dün ' : a.getDate() + ' ' + AYLAR[a.getMonth()] + ' ';
 }
-function hoursText(p){ return (p.from && p.to) ? dayWord(p.from) + clock(new Date(p.from)) + ' – ' + dayWord(p.to) + clock(new Date(p.to)) : ''; }
+// Kartta yalnız işe yarayan uç gösterilir: nöbetteyse bitişi, başlamadıysa başlangıcı ("08:30 – 08:30" gibi aralık yazılmaz).
+// Gece yarısı biten nöbet "yarın 00:00" değil, o günün "24:00"ü diye yazılır.
+function hoursText(p){
+  if(!p.from || !p.to) return '';
+  const st = dutyState(p), end = new Date(p.to), mid = end.getHours() === 0 && end.getMinutes() === 0;
+  const endTxt = mid ? dayWord(p.to - 60000) + '24:00' : dayWord(p.to) + clock(end);
+  return st === 2 ? 'Nöbeti bitti · ' + endTxt : st === 1 ? 'Henüz nöbetçi değil · başlangıç ' + dayWord(p.from) + clock(new Date(p.from)) : 'Nöbetçi · bitiş ' + endTxt;
+}
 
 /* ---------- Durum ---------- */
 const ALL = '';                 // "Tüm ilçeler"
@@ -1020,8 +1027,7 @@ function cardHtml(it){
     + (badge ? '<div class="p-dist">' + escapeHtml(badge) + '</div>' : '') + '</div>'
     + '<div class="p-addr">' + escapeHtml(p.address) + '</div>'
     + (p.note ? '<div class="p-note">' + escapeHtml(p.note) + '</div>' : '')
-    + (hrs ? '<div class="p-hours' + (st === 2 ? ' off' : st === 1 ? ' wait' : '') + '">'
-        + (st === 2 ? 'Nöbeti bitti · ' : st === 1 ? 'Nöbeti henüz başlamadı · ' : 'Nöbet: ') + escapeHtml(hrs) + '</div>' : '')
+    + (hrs ? '<div class="p-hours' + (st === 2 ? ' off' : st === 1 ? ' wait' : '') + '">' + escapeHtml(hrs) + '</div>' : '')
     + (p.phone ? '<div class="p-phone">' + escapeHtml(phoneText(p.phone)) + '</div>' : '')
     + '<div class="p-act">'
     + (tel ? '<a class="call" href="' + escapeHtml(tel) + '">' + ICO_CALL + 'Ara</a>' : '<a class="call" aria-disabled="true" style="opacity:.5;pointer-events:none">' + ICO_CALL + 'Ara</a>')
