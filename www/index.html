@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
-<!-- İçerik güvenlik politikası: dışarıdan betik / stil / resim yüklenmez; ağ isteği yalnız aşağıdaki iki siteye gider
+<!-- İçerik güvenlik politikası: dışarıdan betik / stil / resim yüklenmez; ağ isteği yalnız aşağıdaki sitelere gider (eczacı odaları ve Nominatim)
      (uygulamada istekler Capacitor'ın yerel HTTP'sinden geçer, bu satır tarayıcı tarafını da kapatır).
      Yeni kaynak sitesi eklenirse connect-src'ye yazılır. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://www.aeo.org.tr https://nominatim.openstreetmap.org; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://www.aeo.org.tr https://www.kayserieo.org.tr https://www.mersineczaciodasi.org.tr https://nominatim.openstreetmap.org; base-uri 'none'; form-action 'none'">
 <title>Nöbetçi Eczane</title>
 <script>
   // İlk boyama: tema, sayfa çizilmeden önce uygulanır (açılışta renk sıçraması olmasın).
@@ -207,6 +207,11 @@
   .ph.near .p-dist{color:var(--amber);background:var(--amber-soft);}
   .ph .p-addr{margin-top:6px;font-size:14px;overflow-wrap:anywhere;}
   .ph .p-note{margin-top:4px;font-size:13px;color:var(--text-soft);overflow-wrap:anywhere;}
+  .ph .p-hours{margin-top:5px;font-size:13px;font-weight:700;color:var(--accent-text);}
+  .ph .p-hours.wait{color:var(--amber);}
+  .ph .p-hours.off{color:var(--danger);}
+  .ph.off{border-left-color:var(--border);}
+  .ph.off .p-name, .ph.off .p-addr, .ph.off .p-note, .ph.off .p-phone{opacity:0.6;}
   .ph .p-phone{margin-top:4px;font-size:13.5px;color:var(--text-soft);font-variant-numeric:tabular-nums;}
   .ph .p-act{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
   .ph .p-act a{
@@ -418,10 +423,10 @@
 
     <div class="card about">
       <h3>Veri ve hakkında</h3>
-      <p><b>Kaynak:</b> Ankara Eczacı Odası, <a href="https://www.aeo.org.tr/nobetci-eczaneler" target="_blank" rel="noopener">aeo.org.tr</a> (Ankara ve Kırıkkale).</p>
+      <p id="aboutSrc"></p>
       <p id="aboutUpdated"><b>Son güncelleme:</b> —</p>
       <p>Nöbet listesi son anda değişebilir. Gitmeden önce eczaneyi arayın. Acil durumda 112'yi arayın.</p>
-      <p>Bu uygulama Ankara Eczacı Odası'nın resmî uygulaması değildir. Hesap, reklam ve izleme yoktur; seçimleriniz yalnız bu telefonda saklanır.</p>
+      <p>Bu uygulama eczacı odalarının resmî uygulaması değildir; listeler odaların herkese açık nöbet sayfalarından okunur. Hesap, reklam ve izleme yoktur; seçimleriniz yalnız bu telefonda saklanır.</p>
       <p><b>Konum:</b> “Konumuma en yakın” düğmesine basınca telefon konum izni ister. Konum yalnız eczanelere uzaklığı hesaplamak için o an kullanılır; saklanmaz ve hiçbir yere gönderilmez. Düğme Ayarlar'dan kapatılabilir.</p>
       <p><b>Yer adı araması:</b> “Bulunamazsa en yakını göster” açıkken aradığınız yer adı koordinat için OpenStreetMap'e (Nominatim) gönderilir; konumunuz gönderilmez.</p>
       <p id="aboutVer"></p>
@@ -501,7 +506,7 @@ function normAddr(s){
 }
 const TYPE_WORDS = new Set(['mahallesi','caddesi','sokak','bulvari']);
 const STOP_WORDS = new Set(['nobetci','eczane','eczanesi','eczaneler','eczaneleri','eczaneyi','nerede','neresi','hangi','hangisi','var','mi','mu',
-  'en','yakin','yakindaki','yakininda','bul','goster','soyle','bana','icin','de','da','deki','daki','bugun','bu','gece','acik','olan','bir','ve','ankara','kirikkale']);
+  'en','yakin','yakindaki','yakininda','bul','goster','soyle','bana','icin','de','da','deki','daki','bugun','bu','gece','acik','olan','bir','ve','ankara','kirikkale','kayseri','mersin']);
 
 function haversineKm(a, b){
   const R = 6371, rad = x => x * Math.PI / 180;
@@ -565,6 +570,7 @@ const SRC_AEO = {
   // Sabah nöbet değişene kadar bir önceki günün listesini kendisi verir ve bunu bir uyarı satırıyla söyler.
   listUrl(date){ return 'https://www.aeo.org.tr/getPharmacies/' + date; },
   cities: ['Ankara', 'Kırıkkale'],
+  fixedDistricts: AEO_DISTRICTS,
   // İl sınırını saran kutu [batı, güney, doğu, kuzey]: konum araması bununla sınırlanır.
   bbox: { 'Ankara': [30.8, 38.6, 34.1, 40.8], 'Kırıkkale': [33.2, 39.2, 34.5, 40.4] },
   cityOf(district, address){
@@ -633,15 +639,92 @@ const SRC_AEO = {
     return data;
   }
 };
-const SOURCES = [SRC_AEO];
+/* Kayseri ve Mersin eczacı odalarının siteleri aynı yazılımı kullanır: liste /nobetci-eczaneler sayfasının kendi HTML'indedir.
+   Kart: .nobet-kart → <h4><strong>AD</strong> [- İLÇE]</h4>, <p> içinde simgeden sonra gelen metinler
+   (fa-arrow-right: ilçe, fa-home: adres, fa-arrows: tarif), tel: bağlantısı, harita bağlantısında ?q=enlem,boylam ve
+   "22.11.2026 08:30 / 23.11.2026 01:00 nöbetçidir." satırı (eczanenin nöbet başlangıcı / bitişi → from / to). */
+function titleTr(s){ return String(s).toLocaleLowerCase('tr').replace(/(^|[\s\-.(])\p{L}/gu, m => m.toLocaleUpperCase('tr')); }
+function obenSource(o){
+  return {
+    id: o.id, ad: o.ad, url: o.url, cities: [o.city], bbox: { [o.city]: o.bbox }, fixedDistricts: { [o.city]: o.districts },
+    parse(html){
+      const doc = new DOMParser().parseFromString(String(html), 'text/html');
+      const list = [], ts = (d, m, y, h, mi) => new Date(+y, m - 1, +d, +h, +mi).getTime();
+      doc.querySelectorAll('.nobet-kart').forEach((box, i) => {
+        const h4 = box.querySelector('h4'), st = h4 && h4.querySelector('strong'), p = box.querySelector('p');
+        const name = (((st || h4) && (st || h4).textContent) || '').replace(/\s+/g, ' ').trim();
+        if(!name || !p) return;
+        const f = { dist: st ? (h4.textContent || '').replace(st.textContent, '').replace(/^[\s\-–]+/, '') : '', addr: '', note: '' };
+        let cur = '';
+        p.childNodes.forEach(n => {
+          if(n.nodeType === 1){
+            if(n.tagName === 'I'){ const c = n.className || ''; cur = /fa-arrow-right/.test(c) ? 'dist' : /fa-home/.test(c) ? 'addr' : /fa-arrows/.test(c) ? 'note' : ''; }
+            return;                                        // bağlantı, vurgu, satır sonu: metni alınmaz
+          }
+          if(cur && n.nodeType === 3) f[cur] += n.textContent || '';
+        });
+        const clean = t => t.replace(/\s+/g, ' ').trim();
+        let phone = '', lat = null, lng = null, from = 0, to = 0;
+        box.querySelectorAll('a[href]').forEach(a => {
+          const h = a.getAttribute('href') || '';
+          const t = /^tel:(.+)$/.exec(h); if(t && !phone) phone = t[1].trim();
+          const m = /[?&]q=(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/.exec(h);
+          if(m){ const la = parseFloat(m[1]), lo = parseFloat(m[2]); if(la > 35 && la < 43 && lo > 25 && lo < 46){ lat = la; lng = lo; } }
+        });
+        const hm = /(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\s*\/\s*(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})/.exec(p.textContent || '');
+        if(hm){ const a = ts(hm[1], hm[2], hm[3], hm[4], hm[5]), b = ts(hm[6], hm[7], hm[8], hm[9], hm[10]); if(isFinite(a) && isFinite(b) && b > a){ from = a; to = b; } }
+        const rd = clean(f.dist);
+        const district = !rd ? OTHER : (o.districts.find(d => norm(d) === norm(rd)) || titleTr(rd));
+        list.push({ id: o.id + '-' + i, name, city: o.city, district, address: clean(f.addr), note: clean(f.note), phone, lat, lng, from, to });
+      });
+      const districts = { [o.city]: o.districts.slice() };
+      list.forEach(p => { if(p.district !== OTHER && !districts[o.city].includes(p.district)) districts[o.city].push(p.district); });
+      districts[o.city].sort((a, b) => a.localeCompare(b, 'tr'));
+      const froms = list.map(p => p.from).filter(Boolean);
+      return { duty: ymd(new Date(froms.length ? Math.min.apply(null, froms) : Date.now())), districts, list, notice: '',
+               until: list.reduce((m, p) => Math.max(m, p.to), 0) };      // son nöbet de bitince liste eskir
+    },
+    async fetchAll(){
+      const r = await httpGet(this.url, { 'Accept': 'text/html,application/xhtml+xml,*/*' });
+      const d = this.parse(r);
+      if(!d.list.length) throw new Error('Sayfa geldi ama içinde eczane bulunamadı (' + String(r).length + ' karakter)');
+      return d;
+    }
+  };
+}
+const SRC_KAYSERI = obenSource({ id: 'kayseri', ad: 'Kayseri Eczacı Odası', url: 'https://www.kayserieo.org.tr/nobetci-eczaneler', city: 'Kayseri',
+  bbox: [34.8, 37.7, 36.9, 39.4],
+  districts: ['Akkışla','Bünyan','Develi','Felahiye','Hacılar','İncesu','Kocasinan','Melikgazi','Özvatan','Pınarbaşı','Sarıoğlan','Sarız','Talas','Tomarza','Yahyalı','Yeşilhisar'] });
+const SRC_MERSIN = obenSource({ id: 'mersin', ad: 'Mersin Eczacı Odası', url: 'https://www.mersineczaciodasi.org.tr/nobetci-eczaneler', city: 'Mersin',
+  bbox: [32.5, 35.9, 35.3, 37.5],
+  districts: ['Akdeniz','Anamur','Aydıncık','Bozyazı','Çamlıyayla','Erdemli','Gülnar','Mezitli','Mut','Silifke','Tarsus','Toroslar','Yenişehir'] });
+
+const SOURCES = [SRC_AEO, SRC_KAYSERI, SRC_MERSIN];
 const CITIES = SOURCES.flatMap(s => s.cities);
 function sourceOf(city){ return SOURCES.find(s => s.cities.includes(city)) || SOURCES[0]; }
+// Konumun hangi ilin sınır kutusunda olduğu ('' = bilinen illerin dışında)
+function cityAt(pt){
+  for(const s of SOURCES) for(const c of s.cities){
+    const b = s.bbox && s.bbox[c];
+    if(b && pt.lng >= b[0] && pt.lng <= b[2] && pt.lat >= b[1] && pt.lat <= b[3]) return c;
+  }
+  return '';
+}
+// Eczanenin nöbet durumu (kaynak saat veriyorsa): 0 nöbette, 1 henüz başlamadı, 2 bitti. Saat yoksa 0.
+function dutyState(p){ const n = Date.now(); return (p.to && n >= p.to) ? 2 : (p.from && n < p.from) ? 1 : 0; }
+function dayWord(t){
+  const a = new Date(t), b = new Date();
+  const d = Math.round((new Date(a.getFullYear(), a.getMonth(), a.getDate()) - new Date(b.getFullYear(), b.getMonth(), b.getDate())) / 864e5);
+  return d === 0 ? '' : d === 1 ? 'yarın ' : d === -1 ? 'dün ' : a.getDate() + ' ' + AYLAR[a.getMonth()] + ' ';
+}
+function hoursText(p){ return (p.from && p.to) ? dayWord(p.from) + clock(new Date(p.from)) + ' – ' + dayWord(p.to) + clock(new Date(p.to)) : ''; }
 
 /* ---------- Durum ---------- */
 const ALL = '';                 // "Tüm ilçeler"
 const CACHE_MIN = 30;           // liste bu kadar dakikadan eskiyse açılışta / öne gelişte yenilenir
-let data = null;                // { src, duty, districts, list, at, notice, until }
-let loading = false, loadError = '', loadDetail = '';
+let data = null;                // { src, duty, districts, list, at, notice, until } — yalnız seçili şehrin kaynağı
+let loading = false,            // yüklenen kaynağın kimliği ya da false
+    loadSeq = 0, loadError = '', loadDetail = '';
 let selCity = CITIES[0], selDist = ALL;
 let query = '';                 // arama kutusundaki metin
 let searchRes = null;           // { q, mode:'match'|'near'|'none'|'busy', items:[{p, km}], speech }
@@ -711,7 +794,7 @@ function findMatches(text){
   const best = scored.reduce((m, x) => Math.max(m, x.s), 0);
   const keep = (q.type && best === 3) ? scored.filter(x => x.s === 3) : scored;
   const here = x => (selDist !== ALL && x.p.district === selDist) ? 1 : 0;
-  return { items: keep.sort((a, b) => (here(b) - here(a)) || (b.s - a.s)).map(x => ({ p: x.p })), fuzzy };
+  return { items: keep.sort((a, b) => (here(b) - here(a)) || (dutyState(a.p) - dutyState(b.p)) || (b.s - a.s)).map(x => ({ p: x.p })), fuzzy };
 }
 // Yer adını koordinata çevirir (OpenStreetMap Nominatim; anahtar gerekmez).
 // Arama ilin sınır kutusuyla sınırlanır: aynı adlı yer başka ildeyse sonuç sayılmaz.
@@ -729,9 +812,10 @@ async function geocode(place, city){
   if(bb && (lng < bb[0] || lng > bb[2] || lat < bb[1] || lat > bb[3])) return null;
   return { lat, lng };
 }
+// Nöbeti bitmiş eczane sayılmaz; nöbeti henüz başlamamış olanlar nöbettekilerden sonra gelir.
 function nearestTo(pt, n, allCities){
-  return data.list.filter(p => (allCities || p.city === selCity) && p.lat != null)
-    .map(p => ({ p, km: haversineKm(pt, p) })).sort((a, b) => a.km - b.km).slice(0, n);
+  return data.list.filter(p => (allCities || p.city === selCity) && p.lat != null && dutyState(p) !== 2)
+    .map(p => ({ p, km: haversineKm(pt, p) })).sort((a, b) => (dutyState(a.p) - dutyState(b.p)) || (a.km - b.km)).slice(0, n);
 }
 
 function speechName(p){ return p.name.toLocaleLowerCase('tr').replace(/(^|\s)\p{L}/gu, m => m.toLocaleUpperCase('tr')); }
@@ -797,9 +881,16 @@ function nearMe(){
   clearTimeout(typeTimer); stopSpeak();
   query = ''; $('searchInput').value = ''; $('searchClear').hidden = true;
   searchRes = { q: '', mode: 'busy', items: [], speech: '', here: true }; render();
-  navigator.geolocation.getCurrentPosition(pos => {
+  navigator.geolocation.getCurrentPosition(async pos => {
     if(seq !== geoSeq) return;
-    const near = nearestTo({ lat: pos.coords.latitude, lng: pos.coords.longitude }, 5, true);
+    const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude }, c = cityAt(pt);
+    if(c && sourceOf(c) !== sourceOf(selCity)){                 // konum başka bir kaynağın ilinde: o ile geçilir
+      selCity = c; selDist = ALL; saveSel(); syncSource(); render();
+      await load(false);
+      if(seq !== geoSeq) return;
+      if(!data){ searchRes = null; render(); return; }           // liste alınamadı: hata ekranı görünür
+    }
+    const near = nearestTo(pt, 5, true);
     if(!near.length){ searchRes = { q: '', mode: 'none', items: [], speech: '', here: true, msg: 'Yakınınızda konumu bilinen nöbetçi eczane yok.' }; render(); return; }
     const f = near[0];
     const speech = 'Size en yakın nöbetçi eczane ' + kmSpeech(f.km) + ' uzaklıkta: ' + speechName(f.p) + '. Adres: ' + speechAddr(f.p) + '.';
@@ -879,11 +970,11 @@ function autoSpeak(text){ if(lsGet(LS.speak, '1') === '1') speak(text); }
 
 /* ---------- 5) Ekran ---------- */
 function telHref(phone){
-  const d = String(phone || '').replace(/[^\d+]/g, '').replace(/^00(?=5)/, '0');
+  const d = String(phone || '').replace(/[^\d+]/g, '').replace(/^00(?=5)/, '0').replace(/^(?=[2-5]\d{9}$)/, '0');
   return /^\+?\d{7,15}$/.test(d) ? 'tel:' + d : '';
 }
 function phoneText(phone){
-  const d = String(phone || '').replace(/\D/g, '').replace(/^00(?=5)/, '0');
+  const d = String(phone || '').replace(/\D/g, '').replace(/^00(?=5)/, '0').replace(/^(?=[2-5]\d{9}$)/, '0');
   const m = /^0(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(d);
   return m ? '0 (' + m[1] + ') ' + m[2] + ' ' + m[3] + ' ' + m[4] : String(phone || '');
 }
@@ -898,11 +989,14 @@ const ICO_MAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 function cardHtml(it){
   const p = it.p, tel = telHref(p.phone);
   const badge = it.km != null ? kmText(it.km) : (p.district === OTHER ? '' : p.district);
-  return '<article class="ph' + (it.km != null ? ' near' : '') + '">'
+  const st = dutyState(p), hrs = hoursText(p);
+  return '<article class="ph' + (it.km != null ? ' near' : '') + (st === 2 ? ' off' : '') + '">'
     + '<div class="p-top"><div class="p-name">' + escapeHtml(p.name) + '</div>'
     + (badge ? '<div class="p-dist">' + escapeHtml(badge) + '</div>' : '') + '</div>'
     + '<div class="p-addr">' + escapeHtml(p.address) + '</div>'
     + (p.note ? '<div class="p-note">' + escapeHtml(p.note) + '</div>' : '')
+    + (hrs ? '<div class="p-hours' + (st === 2 ? ' off' : st === 1 ? ' wait' : '') + '">'
+        + (st === 2 ? 'Nöbeti bitti · ' : st === 1 ? 'Nöbeti henüz başlamadı · ' : 'Nöbet: ') + escapeHtml(hrs) + '</div>' : '')
     + (p.phone ? '<div class="p-phone">' + escapeHtml(phoneText(p.phone)) + '</div>' : '')
     + '<div class="p-act">'
     + (tel ? '<a class="call" href="' + escapeHtml(tel) + '">' + ICO_CALL + 'Ara</a>' : '<a class="call" aria-disabled="true" style="opacity:.5;pointer-events:none">' + ICO_CALL + 'Ara</a>')
@@ -910,10 +1004,10 @@ function cardHtml(it){
     + '</div></article>';
 }
 
-function districtsOf(city){ return (data && data.districts && data.districts[city]) || AEO_DISTRICTS[city] || []; }
+function districtsOf(city){ return (data && data.districts && data.districts[city]) || sourceOf(city).fixedDistricts[city] || []; }
 function countIn(city, dist){
   if(!data) return 0;
-  return data.list.filter(p => p.city === city && (dist === ALL || p.district === dist)).length;
+  return data.list.filter(p => p.city === city && (dist === ALL || p.district === dist) && dutyState(p) !== 2).length;   // nöbeti biten sayılmaz
 }
 function setBtn(id, text){ $(id).querySelector('span').textContent = text; }
 
@@ -1009,7 +1103,7 @@ function render(){
   if(searchRes && (searchRes.mode === 'match' || searchRes.mode === 'near')){ items = searchRes.items; title = resTitle(); }
   else if(searchRes && searchRes.mode === 'none'){ items = []; title = resTitle(); }
   else if(searchRes && searchRes.mode === 'busy'){ items = null; title = resTitle(); }
-  else { items = data ? data.list.filter(p => p.city === selCity && (selDist === ALL || p.district === selDist)).map(p => ({ p })) : null; title = place; }
+  else { items = data ? data.list.filter(p => p.city === selCity && (selDist === ALL || p.district === selDist)).map(p => ({ p })).sort((a, b) => dutyState(a.p) - dutyState(b.p)) : null; title = place; }
   if(waitNew) items = null;
   $('listTitle').textContent = title;
   $('listMeta').textContent = data ? 'Güncelleme ' + clock(new Date(data.at)) : '';
@@ -1051,14 +1145,21 @@ function render(){
 }
 
 /* ---------- Yükleme ve önbellek ---------- */
-function cacheRead(){
-  const c = lsJson(LS.cache, null);
-  if(!c || !Array.isArray(c.list) || !c.at || !c.districts) return null;
+function cacheKey(id){ return id === 'aeo' ? LS.cache : LS.cache + '_' + id; }      // her kaynağın listesi ayrı saklanır
+function cacheRead(id){
+  const c = lsJson(cacheKey(id), null);
+  if(!c || c.src !== id || !Array.isArray(c.list) || !c.at || !c.districts) return null;
   const list = c.list.filter(p => p && typeof p.name === 'string' && typeof p.address === 'string')
     .map(p => ({ id: String(p.id), name: p.name, city: String(p.city), district: String(p.district), address: p.address,
                  note: String(p.note || ''), phone: String(p.phone || ''),
-                 lat: typeof p.lat === 'number' ? p.lat : null, lng: typeof p.lng === 'number' ? p.lng : null }));
+                 lat: typeof p.lat === 'number' ? p.lat : null, lng: typeof p.lng === 'number' ? p.lng : null,
+                 from: Number(p.from) || 0, to: Number(p.to) || 0 }));
   return list.length ? { src: c.src, duty: String(c.duty || ''), districts: c.districts, list, at: Number(c.at), notice: String(c.notice || '').slice(0, 240), until: Number(c.until) || 0 } : null;
+}
+// Seçili şehir başka bir kaynağa aitse eldeki liste bırakılır, o kaynağın kayıtlı listesi (varsa) alınır.
+function syncSource(){
+  const id = sourceOf(selCity).id;
+  if(!data || data.src !== id){ data = cacheRead(id); loadError = ''; loadDetail = ''; }
 }
 // Liste eski mi: site geçerlilik sonunu söylediyse o an geçince, söylemediyse liste önceki bir günde alındıysa.
 function isOutdated(d){
@@ -1073,22 +1174,34 @@ function scheduleTurn(){
   clearTimeout(turnTimer);
   if(!data) return;
   const now = Date.now(), mid = new Date(); mid.setHours(24, 0, 5, 0);
-  const next = data.until > now ? data.until + 5000 : mid.getTime();
-  turnTimer = setTimeout(() => { if(document.hidden) return; if(isOutdated(data)) load(true); else scheduleTurn(); }, Math.max(1000, next - now));
+  let next = data.until > now ? data.until + 5000 : mid.getTime();
+  // Bir eczanenin nöbeti başlayınca / bitince ekran yeniden çizilir (liste yeniden istenmez).
+  data.list.forEach(p => { [p.from, p.to].forEach(t => { if(t && t > now && t + 1000 < next) next = t + 1000; }); });
+  turnTimer = setTimeout(() => { if(document.hidden) return; if(isOutdated(data)) load(true); else { render(); scheduleTurn(); } }, Math.max(1000, next - now));
 }
 
 async function load(force){
-  if(loading) return;
-  if(!force && isFresh(data)) return;
-  loading = true; loadError = ''; loadDetail = ''; render();
   const src = sourceOf(selCity);
+  syncSource();
+  if(loading === src.id) return;
+  if(!force && isFresh(data)) return;
+  const seq = ++loadSeq;
+  loading = src.id; loadError = ''; loadDetail = ''; render();
   try{
     const d = await src.fetchAll();
-    data = { src: src.id, duty: d.duty, districts: d.districts, list: d.list, at: Date.now(), notice: d.notice || '', until: d.until || 0 };
-    lsSet(LS.cache, JSON.stringify(data));
+    if(seq !== loadSeq) return;                          // bu arada başka kaynağın şehrine geçildi
+    let list = d.list;
+    // Site yeni günün listesine geçmiş olabilir; eldeki listede nöbeti hâlâ süren eczane varsa korunur.
+    if(data && data.src === src.id && list.some(p => p.to)){
+      const key = p => norm(p.name) + '|' + p.phone, have = new Set(list.map(key)), now = Date.now();
+      list = data.list.filter(p => p.to > now && p.from <= now && !have.has(key(p))).concat(list);
+    }
+    data = { src: src.id, duty: d.duty, districts: d.districts, list, at: Date.now(), notice: d.notice || '', until: d.until || 0 };
+    lsSet(cacheKey(src.id), JSON.stringify(data));
     scheduleTurn();
     if(searchRes && !searchRes.here) { loading = false; runSearch(query, { full: searchRes.mode !== 'none' || !searchRes.typing }); return; }
   }catch(e){
+    if(seq !== loadSeq) return;
     if(data){ data.stale = true; if(!isOutdated(data)) toast('Liste yenilenemedi, kayıtlı liste gösteriliyor'); }
     else {
       loadDetail = String((e && e.message) || e || '').slice(0, 200);
@@ -1146,7 +1259,7 @@ function clearSearch(){ geoSeq++; query = ''; searchRes = null; $('searchInput')
 
 $('cityBtn').addEventListener('click', e => openPicker('Şehir', cityItems(), selCity, v => {
   if(v !== selCity){ selCity = v; selDist = ALL; }
-  clearSearch(); saveSel(); render(); load(false);
+  clearSearch(); saveSel(); syncSource(); render(); load(false);
 }, e.currentTarget));
 $('distBtn').addEventListener('click', e => openPicker('İlçe · ' + selCity, distItems(selCity, true), selDist, v => {
   selDist = v; clearSearch(); saveSel(); render();
@@ -1212,7 +1325,8 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden){ sche
   const start = lsGet(LS.start, 'last');
   const s = start === 'fixed' ? lsJson(LS.def, null) : lsJson(LS.sel, null);
   if(s && CITIES.includes(s.city)){ selCity = s.city; selDist = typeof s.dist === 'string' ? s.dist : ALL; }
-  data = cacheRead();
+  data = cacheRead(sourceOf(selCity).id);
+  $('aboutSrc').innerHTML = '<b>Kaynak:</b> ' + SOURCES.map(x => '<a href="' + escapeHtml(x.url) + '" target="_blank" rel="noopener">' + escapeHtml(x.ad) + '</a> (' + escapeHtml(x.cities.join(', ')) + ')').join('; ') + '.';
   applyTheme();
   render();
   micInit();
