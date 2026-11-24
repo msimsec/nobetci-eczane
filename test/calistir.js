@@ -109,6 +109,15 @@ const CAP = () => {
     assert.strictEqual(await page.evaluate(() => document.fonts.check('16px Inter')), true);
     await page.click('#appTabs button[data-tab="ayarlar"]');
     assert.strictEqual(await metin(page, '#aboutVer'), 'Sürüm ' + require('../package.json').version);
+    // Yardım: başlıklar kapalı gelir, dokununca açılır
+    assert.strictEqual(await page.locator('#helpCard details').count(), 9);
+    assert.strictEqual(await page.locator('#helpCard details[open]').count(), 0);
+    await page.click('#helpCard summary:has-text("Sesli arama")');
+    // Gizlilik metni uygulamada; iletişim adresi boşken geri bildirim kartı görünmez
+    assert.ok((await metin(page, '#privCard')).includes('hakkınızda veri toplamaz'));
+    assert.strictEqual(await page.locator('#fbCard').isHidden(), true);
+    assert.ok((await page.evaluate(() => feedbackHref('ornek@example.com'))).startsWith('mailto:ornek%40example.com?subject=Ankara'));
+    assert.strictEqual(await page.locator('#helpCard details[open] p').first().isVisible(), true);
     await ctx.close();
   });
 
