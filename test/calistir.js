@@ -54,6 +54,11 @@ const CAP = () => {
     });
     if (ayar.sahteSaat) await page.clock.install({ time: new Date(ayar.saat) });
     else await page.clock.setFixedTime(new Date(ayar.saat));
+    // Paylaşma / harita eklentisi taklidi: çağrıları window.__paylas içine kaydeder.
+    if (ayar.paylas) await page.addInitScript(() => {
+      const k = window.__paylas = { metin: [], harita: [] };
+      window.Capacitor.Plugins.Paylas = { metin: async o => { k.metin.push(o); }, harita: async o => { k.harita.push(o); } };
+    });
     await ctx.route('https://www.aeo.org.tr/**', async route => {
       durum.istekler.push(route.request().url());
       const c = await durum.ayar.cevap(route.request().url());
@@ -302,6 +307,159 @@ const CAP = () => {
   });
 
   const sehirSec = async (page, ad) => { await page.click('#cityBtn'); await page.click('#pickList .opt:has-text("' + ad + '")'); };
+  await dene('sonraki nöbet günü: liste ayrı istenir, uyarısıyla gösterilir; site vermiyorsa "yayımlanmamış" denir', async () => {
+    const YARIN = YAPAY.replace(/CİNNAH/g, 'YARINKİ').replace(/ALİ PAŞA/g, 'ÖBÜR').replace(/ETLİK/g, 'BAŞKA');
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: url => url.endsWith('2026-11-22') ? YARIN : YAPAY });
+    await page.waitForSelector('#list .ph');
+    assert.deepStrictEqual(await page.locator('#daySeg button').allInnerTexts(), ['21 Kasım Cumartesi', '22 Kasım Pazar']);
+    await page.click('#daySeg button[data-v="1"]');
+    await page.waitForSelector('#list .p-name:has-text("YARINKİ")');
+    assert.strictEqual(durum.istekler[1], 'https://www.aeo.org.tr/getPharmacies/2026-11-22');
+    assert.strictEqual(await metin(page, '#heroDate'), '22 Kasım Pazar');
+    assert.strictEqual(await metin(page, '#heroCount'), '5');
+    assert.ok((await metin(page, '#noticeBox')).includes('sonraki nöbet gününün listesidir'));
+    await page.fill('#searchInput', 'cinnah caddesi');                                      // arama gösterilen günde yapılır
+    await page.waitForSelector('#resultBox:not([hidden])');
+    assert.strictEqual((await adlar(page))[0], 'YARINKİ ÖRNEK ECZANESİ');
+    assert.strictEqual((await adlar(page)).length, 1);
+    await page.click('#resultClose');
+    await page.click('#daySeg button[data-v="0"]');
+    await page.waitForSelector('#list .p-name:has-text("CİNNAH")');
+    assert.strictEqual(await metin(page, '#heroDate'), '21 Kasım Cumartesi');
+    assert.strictEqual(await page.locator('#noticeBox').isHidden(), true);
+    // Site sonraki gün için de bugünkü listeyi verirse sonraki gün diye gösterilmez
+    durum.ayar.cevap = () => YAPAY;
+    await page.evaluate(() => { nextData = null; });
+    await page.click('#daySeg button[data-v="1"]');
+    await page.waitForSelector('#dayBack');
+    assert.ok((await metin(page, '#list')).includes('henüz yayımlanmamış'));
+    assert.strictEqual(await metin(page, '#heroCount'), '–');
+    await page.click('#dayBack');
+    await page.waitForSelector('#list .p-name:has-text("CİNNAH")');
+    assert.deepStrictEqual(durum.hata, []);
+    await ctx.close();
+  });
+
+  await dene('paylaş: eczane bilgisi telefonun paylaşma penceresine gider', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, paylas: true });
+    await page.waitForSelector('#list .ph');
+    await page.locator('#list .ph', { hasText: 'CİNNAH' }).locator('button.share').click();
+    const m = await page.evaluate(() => window.__paylas.metin);
+    assert.strictEqual(m.length, 1);
+    assert.strictEqual(m[0].baslik, 'CİNNAH ÖRNEK ECZANESİ');
+    assert.strictEqual(m[0].metin, ['CİNNAH ÖRNEK ECZANESİ', 'Cinnah Cad. No:12/A Çankaya', 'Kuğulu Park karşısı', 'Tel: 0 (312) 555 01 01',
+      'Nöbet günü: 21 Kasım Cumartesi', 'Yol tarifi: https://www.google.com/maps/dir/?api=1&destination=39.9015,32.861', 'Gitmeden önce eczaneyi arayın.'].join('\n'));
+    // "Yanlış bilgi bildir" adresi boşken görünmez; bağlantı metni kodda üretilir
+    assert.strictEqual(await page.locator('#list .p-rep').count(), 0);
+    const h = await page.evaluate(() => reportHref(data.list[0], 'ornek@example.com'));
+    assert.ok(h.startsWith('mailto:ornek%40example.com?subject=') && decodeURIComponent(h).includes('Eczane: CİNNAH ÖRNEK ECZANESİ') && decodeURIComponent(h).includes('21 Kasım Cumartesi'), h);
+    await ctx.close();
+  });
+
+  await dene('yakına göre: liste mesafeye göre sıralanır, kartta km yazar; konumsuz eczane sona düşer', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, konum: [39.9690, 32.8310] });
+    await page.waitForSelector('#list .ph');
+    assert.strictEqual((await adlar(page))[0], 'CİNNAH ÖRNEK ECZANESİ');
+    await page.click('#sortBtn');
+    await page.waitForSelector('#sortBtn.on');
+    const a = await adlar(page);
+    assert.deepStrictEqual([a[0], a[a.length - 1]], ['ETLİK ECZANESİ', '<img src=x onerror=window.__xss=1> ECZANESİ']);   // sonuncunun konumu yok
+    assert.strictEqual(await page.locator('#list .p-dist').first().innerText(), 'Keçiören · 150 m');
+    assert.strictEqual(await page.locator('#list .ph.near').count(), 0);
+    await page.click('#sortBtn');                                                           // kapatınca eski sıra
+    assert.strictEqual((await adlar(page))[0], 'CİNNAH ÖRNEK ECZANESİ');
+    assert.strictEqual(await page.locator('#list .p-dist').first().innerText(), 'Çankaya');
+    await ctx.close();
+  });
+
+  await dene('yol tarifi: "her seferinde seç" açıkken harita uygulaması seçtirilir', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, paylas: true });
+    await page.waitForSelector('#list .ph');
+    await page.click('#appTabs button[data-tab="ayarlar"]');
+    assert.strictEqual(await page.locator('#navCard').isVisible(), true);
+    await page.click('#navSeg button[data-v="sec"]');
+    await page.click('#appTabs button[data-tab="liste"]');
+    await page.locator('#list .ph', { hasText: 'CİNNAH' }).locator('a.dir').click();
+    assert.deepStrictEqual(await page.evaluate(() => window.__paylas.harita), [{ lat: 39.9015, lng: 32.861, ad: 'CİNNAH ÖRNEK ECZANESİ', adres: 'Cinnah Cad. No:12/A Çankaya' }]);
+    assert.strictEqual(ctx.pages().length, 1);                                              // Google bağlantısı ayrıca açılmadı
+    await ctx.close();
+  });
+
+  await dene('nöbet değişimi: site henüz yeni listeye geçmediyse bunu söyler ve kendiliğinden yeniden dener', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-22T09:32:00+03:00', sahteSaat: true, cevap: () => uyari('22.11.2026', '21.11.2026') + YAPAY });
+    await page.waitForSelector('#oldBox:not([hidden])');
+    assert.ok((await metin(page, '#oldText')).includes('henüz yeni nöbet listesine geçmemiş'), await metin(page, '#oldText'));
+    assert.strictEqual((await adlar(page)).length, 5);
+    durum.ayar.cevap = () => YAPAY.replace(/CİNNAH/g, 'PAZAR');                             // site bir dakika sonra yeni listeye geçti
+    await page.clock.fastForward(61000);
+    await page.waitForSelector('#list .p-name:has-text("PAZAR")');
+    assert.strictEqual(durum.istekler.length, 2);
+    assert.strictEqual(await page.locator('#oldBox').isHidden(), true);
+    assert.strictEqual(await metin(page, '#heroDate'), '22 Kasım Pazar');
+    await ctx.close();
+  });
+
+  await dene('liste alınamazsa aralıklarla yeniden denenir; telefonun saat dilimi farklı olsa da geçerlilik saati doğru', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-22T08:00:00+03:00', sahteSaat: true, cevap: () => uyari('22.11.2026', '21.11.2026') + YAPAY });
+    await page.waitForSelector('#list .ph');
+    assert.strictEqual(await page.evaluate(() => data.until), Date.parse('2026-11-22T09:30:00+03:00'));
+    durum.ayar.cevap = () => null;                                                          // 09:30'da bağlantı yok
+    await page.clock.fastForward(91 * 60000);
+    await page.waitForSelector('#oldBox:not([hidden])');
+    assert.ok((await metin(page, '#oldText')).includes('Güncel liste alınamadı'));
+    const once = durum.istekler.length;
+    durum.ayar.cevap = () => YAPAY.replace(/CİNNAH/g, 'PAZAR');                             // bağlantı geri geldi
+    await page.clock.fastForward(11 * 60000);
+    await page.waitForSelector('#list .p-name:has-text("PAZAR")');
+    assert.ok(durum.istekler.length > once);
+    await ctx.close();
+    // Saat dilimi Tokyo olan telefonda da "09:30" Türkiye saatiyle yorumlanır
+    const ctx2 = await tarayici.newContext({ timezoneId: 'Asia/Tokyo' }); const p2 = await ctx2.newPage();
+    await p2.goto(adres);
+    assert.strictEqual(await p2.evaluate(h => SRC_AEO.parse(h, '2026-11-22').until, uyari('22.11.2026', '21.11.2026') + YAPAY), Date.parse('2026-11-22T09:30:00+03:00'));
+    await ctx2.close();
+  });
+
+  await dene('konumuma en yakın: liste yenilenince sonuç yeni listeyle hesaplanır; kapsam dışı konum söylenir', async () => {
+    let s = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, konum: [39.9690, 32.8310] });
+    await s.page.waitForSelector('#list .ph');
+    await s.page.click('#locBtn');
+    await s.page.waitForSelector('#list .ph.near');
+    assert.strictEqual((await adlar(s.page))[0], 'ETLİK ECZANESİ');
+    s.durum.ayar.cevap = () => YAPAY.replace(/ETLİK/g, 'YENİ GÜN');
+    await s.page.click('#refreshBtn');
+    await s.page.waitForSelector('#list .p-name:has-text("YENİ GÜN")');
+    assert.strictEqual(await s.page.locator('#list .p-name:has-text("ETLİK")').count(), 0);
+    await s.ctx.close();
+    s = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, konum: [41.0082, 28.9784] });     // İstanbul
+    await s.page.waitForSelector('#list .ph');
+    await s.page.click('#locBtn');
+    await s.page.waitForSelector('#resultBox.warn:not([hidden])');
+    assert.ok((await metin(s.page, '#resultText')).includes('Ankara ve Kırıkkale dışında görünüyor'));
+    assert.strictEqual(await s.page.locator('#list .ph').count(), 0);
+    assert.deepStrictEqual(await s.page.evaluate(() => [kmText(0.01), kmText(0.024), kmText(0.03), kmText(0.976), kmText(1.24)]), ['50 m’den yakın', '50 m’den yakın', '50 m', '1,0 km', '1,2 km']);
+    await s.ctx.close();
+  });
+
+  await dene('arama: "cd" / "mh" kısaltmaları ve yalnız dolgu sözcüğünden oluşan sorgular', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, yer: [39.9690, 32.8310] });
+    await page.waitForSelector('#list .ph');
+    await page.fill('#searchInput', 'yunus emre cd');
+    await page.waitForSelector('#resultBox:not([hidden])');
+    assert.deepStrictEqual(await adlar(page), ['ETLİK ECZANESİ']);
+    await page.fill('#searchInput', 'tuzlucayir mh');
+    await page.waitForSelector('#list .p-name:has-text("onerror")');
+    assert.deepStrictEqual(await page.evaluate(() => { const q = parseQuery('ankara caddesi'); return [q.core, q.type, q.filler]; }), [['ankara'], 'caddesi', true]);
+    assert.deepStrictEqual(await page.evaluate(() => { const q = parseQuery('cinnah caddesinde nöbetçi eczane'); return [q.core, q.filler]; }), [['cinnah'], false]);
+    await page.fill('#searchInput', 'ankara caddesi'); await page.press('#searchInput', 'Enter');   // eşleşme yok; dolgu sözcüğü için konum aranmaz
+    await page.waitForSelector('#resultBox.warn:not([hidden])');
+    assert.strictEqual(durum.yerIstek.length, 0);
+    // İlçe adı sabit listedeki yazımla eşlenir; iki numaralı telefonda ilki aranır
+    assert.deepStrictEqual(await page.evaluate(() => [SRC_AEO.label('ÇANKAYA '), SRC_AEO.label('kazan'), SRC_AEO.cityOf('KIRIKKALE MERKEZ', ''), telHref('0312 555 01 01 / 02')]),
+      ['Çankaya', 'Kahramankazan', 'Kırıkkale', 'tel:03125550101']);
+    await ctx.close();
+  });
+
   await dene('sesli okuma: hoparlör düğmesi okurken "durdur" olur, basınca okuma kesilir, bitince kendiliğinden döner', async () => {
     const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, ses: true });
     await page.waitForSelector('#list .ph');

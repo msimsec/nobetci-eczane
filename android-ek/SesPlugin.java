@@ -107,8 +107,11 @@ public class SesPlugin extends Plugin {
                 }
             }
             tts.setSpeechRate(hiz);
-            tts.speak(metin, TextToSpeech.QUEUE_FLUSH, null, kimlik);
-            r.put("ok", true);
+            if (tts.speak(metin, TextToSpeech.QUEUE_FLUSH, null, kimlik) == TextToSpeech.SUCCESS) {
+                r.put("ok", true);
+            } else {
+                r.put("yok", true); // motor bağlantısı kopmuş: ses çıkmaz, uygulama bunu bilsin
+            }
         } catch (Exception e) {
             r.put("yok", true);
         }
@@ -203,7 +206,12 @@ public class SesPlugin extends Plugin {
     }
 
     @PluginMethod
-    public void sus(PluginCall call) {
+    public synchronized void sus(PluginCall call) {
+        // Motor hazırlanırken bekleyen okuma varsa o da iptal edilir; yoksa motor hazır olunca yine okurdu.
+        if (bekleyen != null) {
+            bekleyen.resolve(new JSObject());
+            bekleyen = null;
+        }
         try {
             if (tts != null) tts.stop();
         } catch (Exception e) {
