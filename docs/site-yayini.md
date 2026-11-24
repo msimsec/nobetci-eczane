@@ -5,22 +5,22 @@ alan adı `simsec.app`, barındırma Firebase Hosting, DNS ve e-posta yönlendir
 
 | | Görev & Not | Ankara Nöbetçi Eczane |
 |---|---|---|
-| Site klasörü | `site-tasknote/` | `site-eczane/` |
-| Firebase Hosting sitesi | `simsec-tasknote` | `simsec-eczane` |
-| Adres | `tasknote.simsec.app` | `eczane.simsec.app` |
-| Gizlilik politikası | `https://tasknote.simsec.app/gizlilik.html` | `https://eczane.simsec.app/gizlilik.html` |
-| Destek e-postası | `tasknote@simsec.app` | `eczane@simsec.app` |
+| Site klasörü | `site-tasknote/` | `site-ankaraeczane/` |
+| Firebase Hosting sitesi | `simsec-tasknote` | `simsec-ankaraeczane` |
+| Adres | `tasknote.simsec.app` | `ankaraeczane.simsec.app` |
+| Gizlilik politikası | `https://tasknote.simsec.app/gizlilik.html` | `https://ankaraeczane.simsec.app/gizlilik.html` |
+| Destek e-postası | `tasknote@simsec.app` | `ankaraeczane@simsec.app` |
 
 Firebase projesi aynı: `gunluk-haftalik-rapor` (`.firebaserc`).
 
 ## Bir kez yapılacaklar
 
-1. **Cloudflare → E-posta → E-posta Yönlendirme:** `eczane@simsec.app` için bir kural ekle, hedef olarak kendi posta kutunu seç
+1. **Cloudflare → E-posta → E-posta Yönlendirme:** `ankaraeczane@simsec.app` için bir kural ekle, hedef olarak kendi posta kutunu seç
    (`tasknote@simsec.app` kuralıyla aynı). Bu yapılana kadar uygulamadaki "Geri bildirim" ve "Yanlış bilgi bildir" e-postaları geri döner.
 2. **Firebase'de siteyi oluştur** (bu depo klasöründe):
 
    ```
-   firebase hosting:sites:create simsec-eczane
+   firebase hosting:sites:create simsec-ankaraeczane
    ```
 
 3. **Yayımla:**
@@ -29,13 +29,13 @@ Firebase projesi aynı: `gunluk-haftalik-rapor` (`.firebaserc`).
    firebase deploy --only hosting
    ```
 
-   Site önce `https://simsec-eczane.web.app` adresinde açılır.
-4. **Firebase Console → Hosting → simsec-eczane → Özel alan adı ekle:** `eczane.simsec.app`. Firebase'in verdiği DNS kaydını
+   Site önce `https://simsec-ankaraeczane.web.app` adresinde açılır.
+4. **Firebase Console → Hosting → simsec-ankaraeczane → Özel alan adı ekle:** `ankaraeczane.simsec.app`. Firebase'in verdiği DNS kaydını
    **Cloudflare → DNS**'e ekle (`tasknote` için eklenen kaydın benzeri; Firebase sertifikayı kendisi alacağı için kayıt "yalnız DNS" olmalı,
    turuncu bulut kapalı).
-5. `https://eczane.simsec.app/gizlilik.html` açılıyorsa bu adres Play Console'da gizlilik politikası olarak yazılır.
+5. `https://ankaraeczane.simsec.app/gizlilik.html` açılıyorsa bu adres Play Console'da gizlilik politikası olarak yazılır.
 
 ## Sonraki değişikliklerde
 
-`site-eczane/` içindeki bir dosya değişince: `firebase deploy --only hosting`. Uygulamadaki Ayarlar → Gizlilik bölümü ile
-`site-eczane/gizlilik.html` aynı şeyi anlatır; biri değişirse diğeri de güncellenir.
+`site-ankaraeczane/` içindeki bir dosya değişince: `firebase deploy --only hosting`. Uygulamadaki Ayarlar → Gizlilik bölümü ile
+`site-ankaraeczane/gizlilik.html` aynı şeyi anlatır; biri değişirse diğeri de güncellenir.

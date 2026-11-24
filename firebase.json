@@ -1,8 +1,8 @@
 {
   "hosting": [
     {
-      "site": "simsec-eczane",
-      "public": "site-eczane",
+      "site": "simsec-ankaraeczane",
+      "public": "site-ankaraeczane",
       "ignore": [
         "firebase.json",
         "**/.*",

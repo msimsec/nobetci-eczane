@@ -117,7 +117,7 @@ const CAP = () => {
 assert.strictEqual(await page.locator('#privCard .pv-list li').count(), 12);                  // 5 söz + 7 izin / servis
     assert.ok((await metin(page, '#privCard')).includes('Hakkınızda veri toplamıyoruz'));
     assert.strictEqual(await page.locator('#fbCard').isVisible(), true);
-    assert.ok((await page.locator('#fbBug').getAttribute('href')).startsWith('mailto:eczane@simsec.app?subject='));
+    assert.ok((await page.locator('#fbBug').getAttribute('href')).startsWith('mailto:ankaraeczane@simsec.app?subject='));
     assert.ok(decodeURIComponent(await page.locator('#fbIdea').getAttribute('href')).includes('Önerim:'));
     const fb = await page.evaluate(() => [feedbackUrl('hata', 'ornek@example.com'), feedbackUrl('oneri', 'ornek@example.com')]);
     assert.ok(fb[0].startsWith('mailto:ornek@example.com?subject=') && decodeURIComponent(fb[0]).includes('Hata bildirimi') && decodeURIComponent(fb[0]).includes('Ne yapıyordum, ne oldu:'), fb[0]);
@@ -365,7 +365,7 @@ assert.strictEqual(await page.locator('#privCard .pv-list li').count(), 12);    
       'Nöbet günü: 21 Kasım Cumartesi', 'Yol tarifi: https://www.google.com/maps/dir/?api=1&destination=39.9015,32.861', 'Gitmeden önce eczaneyi arayın.'].join('\n'));
     // "Yanlış bilgi bildir": her kartta, destek adresine hazır e-posta
     assert.strictEqual(await page.locator('#list .p-rep').count(), 5);
-    assert.ok(decodeURIComponent(await page.locator('#list .p-rep').first().getAttribute('href')).startsWith('mailto:eczane@simsec.app?subject=Nöbet bilgisi hatası: CİNNAH ÖRNEK ECZANESİ'));
+    assert.ok(decodeURIComponent(await page.locator('#list .p-rep').first().getAttribute('href')).startsWith('mailto:ankaraeczane@simsec.app?subject=Nöbet bilgisi hatası: CİNNAH ÖRNEK ECZANESİ'));
     const h = await page.evaluate(() => reportHref(data.list[0], 'ornek@example.com'));
     assert.ok(h.startsWith('mailto:ornek@example.com?subject=') && decodeURIComponent(h).includes('Eczane: CİNNAH ÖRNEK ECZANESİ') && decodeURIComponent(h).includes('21 Kasım Cumartesi'), h);
     await ctx.close();
