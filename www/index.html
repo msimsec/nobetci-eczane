@@ -532,8 +532,8 @@ function norm(s){
 function normAddr(s){
   return norm(s)
     .replace(/['’`´]\s*[a-z]+/g, ' ')                       // "Caddesi'nde" → "Caddesi"
-    .replace(/\bmah(alle[a-z]*)?\b\.?/g, ' mahallesi ')
-    .replace(/\bcad(de[a-z]*)?\b\.?/g, ' caddesi ')
+    .replace(/\b(mah(alle[a-z]*)?|mhl?)\b\.?/g, ' mahallesi ')
+    .replace(/\b(cad(de[a-z]*)?|cdd?)\b\.?/g, ' caddesi ')
     .replace(/\b(sok(a[kg][a-z]*)?|sk)\b\.?/g, ' sokak ')
     .replace(/\b(bulv(ar[a-z]*)?|blv)\b\.?/g, ' bulvari ')
     .replace(/[^a-z0-9]+/g, ' ').trim();
@@ -548,8 +548,9 @@ function haversineKm(a, b){
   const h = Math.sin(dLat/2)**2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng/2)**2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-function kmText(km){ return km < 1 ? Math.round(km * 1000 / 50) * 50 + ' m' : km.toFixed(1).replace('.', ',') + ' km'; }
-function kmSpeech(km){ return km < 1 ? Math.round(km * 1000 / 50) * 50 + ' metre' : km.toFixed(1).replace('.', ',') + ' kilometre'; }
+// 50 m'ye yuvarlanır; çok yakında "0 m", 1 km'ye yakında "1000 m" yazmaz.
+function kmText(km){ return km < 0.025 ? '50 m’den yakın' : km < 0.975 ? Math.round(km * 1000 / 50) * 50 + ' m' : km.toFixed(1).replace('.', ',') + ' km'; }
+function kmSpeech(km){ return km < 0.025 ? 'elli metreden yakın' : km < 0.975 ? Math.round(km * 1000 / 50) * 50 + ' metre' : km.toFixed(1).replace('.', ',') + ' kilometre'; }
 
 const AYLAR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const GUNLER = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
@@ -585,7 +586,7 @@ async function httpGet(url, headers){
    ekran kodu kaynağı bilmez, yalnız aşağıdaki ortak eczane nesnesini kullanır:
    { id, name, city, district, address, note, phone, lat, lng } */
 const KIRIKKALE_DISTRICTS = new Set(['bahsili','baliseyh','celebi','delice','karakecili','keskin','kirikkale','sulakyurt','yahsihan']);
-const DISTRICT_LABEL = { 'kazan':'Kahramankazan', 'baliseyh':'Balışeyh', 'kirikkale':'Merkez' };
+const DISTRICT_LABEL = { 'kazan':'Kahramankazan', 'baliseyh':'Balışeyh', 'kirikkale':'Merkez', 'kirikkale merkez':'Merkez' };
 const OTHER = 'Diğer';
 
 // İlçe listeleri sabit: liste gelmeden de seçim yapılabilsin, o gün nöbetçisi olmayan ilçe de görünsün.
@@ -608,11 +609,16 @@ const SRC_AEO = {
   // İl sınırını saran kutu [batı, güney, doğu, kuzey]: konum araması bununla sınırlanır.
   bbox: { 'Ankara': [30.8, 38.6, 34.1, 40.8], 'Kırıkkale': [33.2, 39.2, 34.5, 40.4] },
   cityOf(district, address){
-    if(KIRIKKALE_DISTRICTS.has(norm(district))) return 'Kırıkkale';
+    const nd = norm(district).replace(/\s+/g, ' ').trim();
+    if(KIRIKKALE_DISTRICTS.has(nd) || /^kirikkale\b/.test(nd)) return 'Kırıkkale';
     if(district === OTHER && /kirikkale/.test(norm(address))) return 'Kırıkkale';
     return 'Ankara';
   },
-  label(raw){ return DISTRICT_LABEL[norm(raw)] || raw; },
+  // İlçe adı sabit listedeki yazımla eşlenir ("ÇANKAYA", "çankaya " → "Çankaya").
+  label(raw){
+    const n = norm(raw).replace(/\s+/g, ' ').trim();
+    return DISTRICT_LABEL[n] || AEO_DISTRICTS['Ankara'].concat(AEO_DISTRICTS['Kırıkkale']).find(d => norm(d) === n) || raw;
+  },
   parse(html, date){
     const doc = new DOMParser().parseFromString(String(html), 'text/html');
     const boxes = doc.querySelectorAll('.inline-box');
@@ -634,7 +640,7 @@ const SRC_AEO = {
       phone = phone.replace(/\s+/g, ' ').trim();
       let lat = null, lng = null;
       box.querySelectorAll('a[href]').forEach(a => {
-        const m = /[?&]query=(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/.exec(a.getAttribute('href') || '');
+        const m = /[?&](?:query|q|daddr|destination)=(-?\d{1,2}\.\d+)(?:,|%2C)\s*(-?\d{1,3}\.\d+)/i.exec(a.getAttribute('href') || '');
         if(m){ const la = parseFloat(m[1]), lo = parseFloat(m[2]); if(la > 35 && la < 43 && lo > 25 && lo < 46){ lat = la; lng = lo; } }
         if(!phone){ const t = /^tel:(.+)$/.exec(a.getAttribute('href') || ''); if(t) phone = t[1].trim(); }
       });
@@ -653,10 +659,11 @@ const SRC_AEO = {
     const al = doc.querySelector('.alert-nobet');
     if(al){
       notice = (al.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 240);
-      const dm = /(\d{2})\.(\d{2})\.(\d{4})\s+tarihli/.exec(notice);
+      const dm = /(\d{2})[./](\d{2})[./](\d{4})\s+tarihli/i.exec(notice);
       if(dm) duty = dm[3] + '-' + dm[2] + '-' + dm[1];
-      const um = /(\d{2})\.(\d{2})\.(\d{4})\s+saat\s+(\d{1,2})[:.](\d{2})/.exec(notice);
-      if(um){ const t = new Date(+um[3], um[2] - 1, +um[1], +um[4], +um[5]).getTime(); if(isFinite(t)) until = t; }
+      const um = /(\d{2})[./](\d{2})[./](\d{4})\s+saat\s+(\d{1,2})[:.](\d{2})/i.exec(notice);
+      // Sitenin saati Türkiye saatidir (UTC+3); telefonun saat dilimi farklı olsa da doğru an hesaplanır.
+      if(um){ const t = Date.UTC(+um[3], um[2] - 1, +um[1], +um[4] - 3, +um[5]); if(isFinite(t)) until = t; }
     }
     return { duty, districts, list, notice, until };
   },
@@ -713,6 +720,7 @@ let selCity = CITIES[0], selDist = ALL;
 let query = '';                 // arama kutusundaki metin
 let searchRes = null;           // { q, mode:'match'|'near'|'none'|'busy', items:[{p, km}], speech }
 let geoSeq = 0;
+let lastOpts = { full: false, near: false };     // son aramanın seçenekleri: liste yenilenince arama aynı biçimde yinelenir
 // Sonraki nöbet günü: viewDay 1 iken ekran nextData'yı gösterir (bellekte tutulur, saklanmaz).
 let viewDay = 0, nextData = null, nextState = '', nextSeq = 0;      // nextState: '' | 'loading' | 'ok' | 'none' | 'error'
 function V(){ return (viewDay === 1 && nextState === 'ok' && nextData) ? nextData : data; }   // ekranda gösterilen liste
@@ -722,12 +730,15 @@ let sortNear = false, myPos = null;
 
 /* ---------- 3) Arama ---------- */
 function parseQuery(text){
-  const toks = normAddr(text).split(' ').filter(t => t && !STOP_WORDS.has(t));
+  const all = normAddr(text).split(' ').filter(Boolean);
+  let toks = all.filter(t => !STOP_WORDS.has(t)), filler = false;
+  // Geriye yalnız "caddesi" gibi tür sözcüğü kaldıysa ("ankara caddesi", "gece eczanesi", "yakın") dolgu sözcükleri atılmadan aranır.
+  if(!toks.some(t => !TYPE_WORDS.has(t)) && all.some(t => !TYPE_WORDS.has(t))){ toks = all; filler = true; }
   const type = toks.find(t => TYPE_WORDS.has(t)) || '';
   const core = toks.filter(t => !TYPE_WORDS.has(t));
   // Konum sorgusu için özgün yazım (Türkçe harfler kalsın), dolgu sözcükleri atılmış
   const clean = String(text).replace(/['’`´]\s*\p{L}+/gu, '').split(/\s+/).filter(w => w && !STOP_WORDS.has(norm(w).replace(/[^a-z0-9]/g, ''))).join(' ').trim();
-  return { core, type, clean };
+  return { core, type, clean, filler };
 }
 function hayOf(p){
   if(!p._hay){
@@ -820,6 +831,7 @@ async function runSearch(text, opts){
   opts = opts || {};
   const raw = String(text || '').trim();
   const seq = ++geoSeq;
+  lastOpts = { full: !!opts.full, near: !!opts.near };
   if(!raw){ searchRes = null; render(); return; }
   if(!data){ toast('Liste henüz yüklenmedi'); return; }
   const q = parseQuery(raw);
@@ -838,7 +850,7 @@ async function runSearch(text, opts){
     return;
   }
   if(!opts.full){ searchRes = { q: shown, mode: 'none', items: [], speech: '', typing: true }; render(); return; }
-  if(lsGet(LS.near, '1') !== '1' || !q.core.length){
+  if(lsGet(LS.near, '1') !== '1' || !q.core.length || q.filler){
     const speech = shown + ' için nöbetçi eczane bulunamadı.';
     searchRes = { q: shown, mode: 'none', items: [], speech };
     render(); if(opts.voice) autoSpeak(speech);
@@ -866,6 +878,18 @@ async function runSearch(text, opts){
 // Şehir seçimine bakmaz: il sınırına yakın biri için en yakın eczane komşu ilde olabilir.
 function locAvail(){ return !!(navigator.geolocation && navigator.geolocation.getCurrentPosition); }
 function locShow(){ $('locBtn').hidden = !(locAvail() && lsGet(LS.loc, '1') === '1'); }
+// Verilen konuma göre "en yakın" sonucunu kurar (liste yenilenince aynı konumla yeniden çağrılır).
+function nearResult(pt){
+  const near = nearestTo(pt, 5, true), none = msg => { searchRes = { q: '', mode: 'none', items: [], speech: '', here: true, msg }; };
+  if(!near.length){ none('Yakınınızda konumu bilinen nöbetçi eczane yok.'); return; }
+  const f = near[0];
+  if(!cityAt(pt) && f.km > 60){
+    none('Konumunuz Ankara ve Kırıkkale dışında görünüyor; en yakın nöbetçi eczane ' + kmText(f.km) + ' uzakta. Bu uygulama yalnız Ankara ve Kırıkkale’yi kapsar.');
+    return;
+  }
+  const speech = 'Size en yakın nöbetçi eczane ' + kmSpeech(f.km) + ' uzaklıkta: ' + speechName(f.p) + '. Adres: ' + speechAddr(f.p) + '.';
+  searchRes = { q: '', mode: 'near', items: near, speech, here: true };
+}
 function nearMe(){
   if(!V()){ toast('Liste henüz yüklenmedi'); return; }
   const seq = ++geoSeq;
@@ -882,11 +906,7 @@ function nearMe(){
       if(seq !== geoSeq) return;
       if(!data){ searchRes = null; render(); return; }           // liste alınamadı: hata ekranı görünür
     }
-    const near = nearestTo(pt, 5, true);
-    if(!near.length){ searchRes = { q: '', mode: 'none', items: [], speech: '', here: true, msg: 'Yakınınızda konumu bilinen nöbetçi eczane yok.' }; render(); return; }
-    const f = near[0];
-    const speech = 'Size en yakın nöbetçi eczane ' + kmSpeech(f.km) + ' uzaklıkta: ' + speechName(f.p) + '. Adres: ' + speechAddr(f.p) + '.';
-    searchRes = { q: '', mode: 'near', items: near, speech, here: true }; render();
+    nearResult(pt); render();
   }, err => {
     if(seq !== geoSeq) return;
     const msg = err && err.code === 1 ? 'Konum izni verilmedi. İzni telefonun uygulama ayarlarından açabilirsiniz.'
@@ -968,7 +988,7 @@ function findPharmacy(id){
 /* ---------- 4) Ses: uygulamada kendi eklentimiz (Ses), tarayıcıda Web Speech ---------- */
 function sesPlugin(){ return (NATIVE_APP && window.Capacitor.Plugins && window.Capacitor.Plugins.Ses) || null; }
 const SES_WEB = NATIVE_APP ? null : (window.SpeechRecognition || window.webkitSpeechRecognition || null);
-let micAvail = false, sesWeb = null;
+let micAvail = false, sesWeb = null, micBusy = false;
 
 async function micInit(){
   const P = sesPlugin();
@@ -982,8 +1002,11 @@ async function micListen(){
   stopSpeak();
   const P = sesPlugin();
   if(P){
+    if(micBusy) return;
+    micBusy = true;
     let r = null;
-    try{ r = await P.dinle({ dil: 'tr-TR', ipucu: 'Cadde ya da mahalle söyleyin' }); }catch(e){ toast('Ses tanıma açılamadı'); return; }
+    try{ r = await P.dinle({ dil: 'tr-TR', ipucu: 'Cadde ya da mahalle söyleyin' }); }catch(e){ micBusy = false; toast('Ses tanıma açılamadı'); return; }
+    micBusy = false;
     if(r && r.yok){ toast('Bu telefonda ses tanıma bulunamadı'); return; }
     const metin = (r && r.metin || '').trim();
     if(metin) voiceResult(metin);
@@ -1051,7 +1074,8 @@ function autoSpeak(text){ if(lsGet(LS.speak, '1') === '1') speak(text); }
 
 /* ---------- 5) Ekran ---------- */
 function telHref(phone){
-  const d = String(phone || '').replace(/[^\d+]/g, '').replace(/^00(?=5)/, '0').replace(/^(?=[2-5]\d{9}$)/, '0');
+  let d = String(phone || '').replace(/[^\d+]/g, '').replace(/^00(?=5)/, '0').replace(/^(?=[2-5]\d{9}$)/, '0');
+  if(/^0\d{11,}$/.test(d)) d = d.slice(0, 11);          // alanda iki numara varsa ("… 01 01 / 02") ilki aranır
   return /^\+?\d{7,15}$/.test(d) ? 'tel:' + d : '';
 }
 function phoneText(phone){
@@ -1165,8 +1189,10 @@ function render(){
   $('oldBox').hidden = !(old && !loading);
   if(old && !loading){
     const at = new Date(data.at);
-    $('oldText').textContent = (data.duty ? dateLabel(new Date(data.duty + 'T12:00:00')) + ' nöbetine ait; ' : '')
-      + dateLabel(at) + ' ' + clock(at) + '’de alındı. Güncel liste alınamadı. Gitmeden önce eczaneyi mutlaka arayın.';
+    $('oldText').textContent = (data.duty ? dateLabel(new Date(data.duty + 'T12:00:00')) + ' nöbetine ait. ' : '')
+      + 'Alındığı an: ' + dateLabel(at) + ' ' + clock(at) + '. '
+      + (data.late ? 'Site henüz yeni nöbet listesine geçmemiş; kısa aralıklarla kendiliğinden yeniden denenecek.' : 'Güncel liste alınamadı; kendiliğinden yeniden denenecek.')
+      + ' Gitmeden önce eczaneyi mutlaka arayın.';
   }
 
   // Arama sonucu satırı
@@ -1264,7 +1290,8 @@ function render(){
 function cacheKey(id){ return id === 'aeo' ? LS.cache : LS.cache + '_' + id; }      // her kaynağın listesi ayrı saklanır
 function cacheRead(id){
   const c = lsJson(cacheKey(id), null);
-  if(!c || c.src !== id || !Array.isArray(c.list) || !c.at || !c.districts) return null;
+  if(!c || c.src !== id || !Array.isArray(c.list) || !c.at || !c.districts || typeof c.districts !== 'object') return null;
+  if(!Object.keys(c.districts).every(k => Array.isArray(c.districts[k]) && c.districts[k].every(x => typeof x === 'string'))) return null;
   const list = c.list.filter(p => p && typeof p.name === 'string' && typeof p.address === 'string')
     .map(p => ({ id: String(p.id), name: p.name, city: String(p.city), district: String(p.district), address: p.address,
                  note: String(p.note || ''), phone: String(p.phone || ''),
@@ -1283,17 +1310,20 @@ function isOutdated(d){
   if(d.until) return Date.now() >= d.until;
   return new Date(d.at).toDateString() !== new Date().toDateString();
 }
-function isFresh(d){ return d && (Date.now() - d.at) < CACHE_MIN * 60000 && !isOutdated(d); }
+// Gelecekte alınmış görünen liste (telefon saati sonradan düzeltilmiş) taze sayılmaz.
+function isFresh(d){ if(!d) return false; const age = Date.now() - d.at; return age >= 0 && age < CACHE_MIN * 60000 && !isOutdated(d); }
 // Uygulama açıkken nöbet değişirse (sitenin söylediği saat ya da gece yarısı) liste kendiliğinden yenilenir.
-let turnTimer = null;
+let turnTimer = null, retryN = 0;
+const RETRY_SEC = [60, 120, 300, 600];          // eski listeyle kalındıysa yeniden deneme aralıkları
 function scheduleTurn(){
   clearTimeout(turnTimer);
   if(!data) return;
   const now = Date.now(), mid = new Date(); mid.setHours(24, 0, 5, 0);
-  let next = data.until > now ? data.until + 5000 : mid.getTime();
+  const stale = isOutdated(data);
+  let next = stale ? now + RETRY_SEC[Math.min(retryN, RETRY_SEC.length - 1)] * 1000 : (data.until > now ? data.until + 5000 : mid.getTime());
   // Bir eczanenin nöbeti başlayınca / bitince ekran yeniden çizilir (liste yeniden istenmez).
   data.list.forEach(p => { [p.from, p.to].forEach(t => { if(t && t > now && t + 1000 < next) next = t + 1000; }); });
-  turnTimer = setTimeout(() => { if(document.hidden) return; if(isOutdated(data)) load(true); else { render(); scheduleTurn(); } }, Math.max(1000, next - now));
+  turnTimer = setTimeout(() => { if(document.hidden) return; if(isOutdated(data)){ if(stale) retryN++; load(true); } else { render(); scheduleTurn(); } }, Math.max(1000, next - now));
 }
 
 async function load(force){
@@ -1314,12 +1344,17 @@ async function load(force){
     }
     if(data && data.duty !== d.duty){ viewDay = 0; nextData = null; nextState = ''; nextSeq++; }
     data = { src: src.id, duty: d.duty, districts: d.districts, list, at: Date.now(), notice: d.notice || '', until: d.until || 0 };
+    data.late = !!(data.until && data.at >= data.until);      // cevap geldi ama site henüz yeni nöbet listesine geçmemiş
+    if(!isOutdated(data)) retryN = 0;
     lsSet(cacheKey(src.id), JSON.stringify(data));
     scheduleTurn();
-    if(searchRes && !searchRes.here) { loading = false; runSearch(query, { full: searchRes.mode !== 'none' || !searchRes.typing }); return; }
+    // Açık arama yeni listeyle yinelenir. Süren konum araması bölünmez (sonucu zaten yeni listeye göre çıkar);
+    // "konumuma en yakın" sonucu aynı konumla yeniden hesaplanır, eski nöbetin eczaneleri ekranda kalmaz.
+    if(searchRes && searchRes.here){ if(myPos && searchRes.mode === 'near') nearResult(myPos); }
+    else if(searchRes && searchRes.mode !== 'busy'){ loading = false; runSearch(query, { full: lastOpts.full, near: lastOpts.near }); return; }
   }catch(e){
     if(seq !== loadSeq) return;
-    if(data){ data.stale = true; if(!isOutdated(data)) toast('Liste yenilenemedi, kayıtlı liste gösteriliyor'); }
+    if(data){ data.stale = true; data.late = false; if(!isOutdated(data)) toast('Liste yenilenemedi, kayıtlı liste gösteriliyor'); scheduleTurn(); }
     else {
       loadDetail = String((e && e.message) || e || '').slice(0, 200);
       loadError = !NATIVE_APP ? 'Tarayıcı bu siteyi doğrudan okuyamaz (CORS). Uygulama telefonda çalışır.'

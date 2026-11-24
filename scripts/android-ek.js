@@ -4,7 +4,7 @@
 //   3) Google'a otomatik uygulama yedeği kapatılır (allowBackup=false)
 //   4) Konum izni ("Konumuma en yakın" düğmesi; izin düğmeye basılınca sorulur)
 //   5) Sürüm adı package.json'dan build.gradle'a yazılır
-//   7) Uygulama adı capacitor.config.json'dan strings.xml'e yazılır (cap sync var olan projede adı değiştirmez)
+//   7) Uygulama adı (capacitor.config.json) ve simgenin altındaki kısa ad (package.json → simgeAdi) strings.xml'e yazılır
 //   6) Simge ve açılış ekranı (android-ek/res/; "npm run simge:uret" ile üretilir) res/ altına kopyalanır,
 //      açılış ekranının zemin rengi koyu yapılır
 // Yinelenebilir: kaç kez çalıştırılırsa çalıştırılsın sonuç aynıdır. "npm run android:hazirla" bunu çağırır.
@@ -108,15 +108,18 @@ if (fs.existsSync(resKaynak)) {
   }
 }
 
-// 7) Uygulama adı
+// 7) Uygulama adı: app_name (telefon ayarlarında görünen tam ad) capacitor.config.json'dan,
+//    title_activity_main (ana ekranda simgenin altında yazan ad) package.json'daki "simgeAdi" alanından; yoksa tam ad.
 const adYol = path.join(ana, 'res', 'values', 'strings.xml');
 let adNot = 'strings.xml bulunamadı, uygulama adı yazılmadı';
 if (fs.existsSync(adYol) && cfg.appName) {
-  const xmlAd = String(cfg.appName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, "\\'");
+  const simgeAdi = JSON.parse(fs.readFileSync(path.join(kok, 'package.json'), 'utf8')).simgeAdi || cfg.appName;
+  const xml = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, "\\'");
   const sx = fs.readFileSync(adYol, 'utf8');
-  const sx2 = sx.replace(/(<string name="(?:app_name|title_activity_main)">)[^<]*(<\/string>)/g, '$1' + xmlAd + '$2');
+  const sx2 = sx.replace(/(<string name="app_name">)[^<]*(<\/string>)/, '$1' + xml(cfg.appName) + '$2')
+    .replace(/(<string name="title_activity_main">)[^<]*(<\/string>)/, '$1' + xml(simgeAdi) + '$2');
   if (sx2 !== sx) fs.writeFileSync(adYol, sx2);
-  adNot = 'uygulama adı "' + cfg.appName + '"';
+  adNot = 'uygulama adı "' + cfg.appName + '", simge altı "' + simgeAdi + '"';
 }
 
 console.log('Android ekleri yerleştirildi: ' + path.relative(kok, javaHedef) + ' (SesPlugin, PaylasPlugin, MainActivity), AndroidManifest.xml (<queries>, konum izni, allowBackup=false), ' + surumNot + ', ' + simgeNot + ', ' + adNot + '.');

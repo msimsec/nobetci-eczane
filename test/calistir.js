@@ -385,6 +385,81 @@ const CAP = () => {
     await ctx.close();
   });
 
+  await dene('nöbet değişimi: site henüz yeni listeye geçmediyse bunu söyler ve kendiliğinden yeniden dener', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-22T09:32:00+03:00', sahteSaat: true, cevap: () => uyari('22.11.2026', '21.11.2026') + YAPAY });
+    await page.waitForSelector('#oldBox:not([hidden])');
+    assert.ok((await metin(page, '#oldText')).includes('henüz yeni nöbet listesine geçmemiş'), await metin(page, '#oldText'));
+    assert.strictEqual((await adlar(page)).length, 5);
+    durum.ayar.cevap = () => YAPAY.replace(/CİNNAH/g, 'PAZAR');                             // site bir dakika sonra yeni listeye geçti
+    await page.clock.fastForward(61000);
+    await page.waitForSelector('#list .p-name:has-text("PAZAR")');
+    assert.strictEqual(durum.istekler.length, 2);
+    assert.strictEqual(await page.locator('#oldBox').isHidden(), true);
+    assert.strictEqual(await metin(page, '#heroDate'), '22 Kasım Pazar');
+    await ctx.close();
+  });
+
+  await dene('liste alınamazsa aralıklarla yeniden denenir; telefonun saat dilimi farklı olsa da geçerlilik saati doğru', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-22T08:00:00+03:00', sahteSaat: true, cevap: () => uyari('22.11.2026', '21.11.2026') + YAPAY });
+    await page.waitForSelector('#list .ph');
+    assert.strictEqual(await page.evaluate(() => data.until), Date.parse('2026-11-22T09:30:00+03:00'));
+    durum.ayar.cevap = () => null;                                                          // 09:30'da bağlantı yok
+    await page.clock.fastForward(91 * 60000);
+    await page.waitForSelector('#oldBox:not([hidden])');
+    assert.ok((await metin(page, '#oldText')).includes('Güncel liste alınamadı'));
+    const once = durum.istekler.length;
+    durum.ayar.cevap = () => YAPAY.replace(/CİNNAH/g, 'PAZAR');                             // bağlantı geri geldi
+    await page.clock.fastForward(11 * 60000);
+    await page.waitForSelector('#list .p-name:has-text("PAZAR")');
+    assert.ok(durum.istekler.length > once);
+    await ctx.close();
+    // Saat dilimi Tokyo olan telefonda da "09:30" Türkiye saatiyle yorumlanır
+    const ctx2 = await tarayici.newContext({ timezoneId: 'Asia/Tokyo' }); const p2 = await ctx2.newPage();
+    await p2.goto(adres);
+    assert.strictEqual(await p2.evaluate(h => SRC_AEO.parse(h, '2026-11-22').until, uyari('22.11.2026', '21.11.2026') + YAPAY), Date.parse('2026-11-22T09:30:00+03:00'));
+    await ctx2.close();
+  });
+
+  await dene('konumuma en yakın: liste yenilenince sonuç yeni listeyle hesaplanır; kapsam dışı konum söylenir', async () => {
+    let s = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, konum: [39.9690, 32.8310] });
+    await s.page.waitForSelector('#list .ph');
+    await s.page.click('#locBtn');
+    await s.page.waitForSelector('#list .ph.near');
+    assert.strictEqual((await adlar(s.page))[0], 'ETLİK ECZANESİ');
+    s.durum.ayar.cevap = () => YAPAY.replace(/ETLİK/g, 'YENİ GÜN');
+    await s.page.click('#refreshBtn');
+    await s.page.waitForSelector('#list .p-name:has-text("YENİ GÜN")');
+    assert.strictEqual(await s.page.locator('#list .p-name:has-text("ETLİK")').count(), 0);
+    await s.ctx.close();
+    s = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, konum: [41.0082, 28.9784] });     // İstanbul
+    await s.page.waitForSelector('#list .ph');
+    await s.page.click('#locBtn');
+    await s.page.waitForSelector('#resultBox.warn:not([hidden])');
+    assert.ok((await metin(s.page, '#resultText')).includes('Ankara ve Kırıkkale dışında görünüyor'));
+    assert.strictEqual(await s.page.locator('#list .ph').count(), 0);
+    assert.deepStrictEqual(await s.page.evaluate(() => [kmText(0.01), kmText(0.024), kmText(0.03), kmText(0.976), kmText(1.24)]), ['50 m’den yakın', '50 m’den yakın', '50 m', '1,0 km', '1,2 km']);
+    await s.ctx.close();
+  });
+
+  await dene('arama: "cd" / "mh" kısaltmaları ve yalnız dolgu sözcüğünden oluşan sorgular', async () => {
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, yer: [39.9690, 32.8310] });
+    await page.waitForSelector('#list .ph');
+    await page.fill('#searchInput', 'yunus emre cd');
+    await page.waitForSelector('#resultBox:not([hidden])');
+    assert.deepStrictEqual(await adlar(page), ['ETLİK ECZANESİ']);
+    await page.fill('#searchInput', 'tuzlucayir mh');
+    await page.waitForSelector('#list .p-name:has-text("onerror")');
+    assert.deepStrictEqual(await page.evaluate(() => { const q = parseQuery('ankara caddesi'); return [q.core, q.type, q.filler]; }), [['ankara'], 'caddesi', true]);
+    assert.deepStrictEqual(await page.evaluate(() => { const q = parseQuery('cinnah caddesinde nöbetçi eczane'); return [q.core, q.filler]; }), [['cinnah'], false]);
+    await page.fill('#searchInput', 'ankara caddesi'); await page.press('#searchInput', 'Enter');   // eşleşme yok; dolgu sözcüğü için konum aranmaz
+    await page.waitForSelector('#resultBox.warn:not([hidden])');
+    assert.strictEqual(durum.yerIstek.length, 0);
+    // İlçe adı sabit listedeki yazımla eşlenir; iki numaralı telefonda ilki aranır
+    assert.deepStrictEqual(await page.evaluate(() => [SRC_AEO.label('ÇANKAYA '), SRC_AEO.label('kazan'), SRC_AEO.cityOf('KIRIKKALE MERKEZ', ''), telHref('0312 555 01 01 / 02')]),
+      ['Çankaya', 'Kahramankazan', 'Kırıkkale', 'tel:03125550101']);
+    await ctx.close();
+  });
+
   await dene('sesli okuma: hoparlör düğmesi okurken "durdur" olur, basınca okuma kesilir, bitince kendiliğinden döner', async () => {
     const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, ses: true });
     await page.waitForSelector('#list .ph');
