@@ -1,9 +1,9 @@
-# Nöbetçi Eczane
+# Ankara Nöbetçi Eczane
 
-Şehir ve ilçe seçilir, o günün nöbetçi eczaneleri listelenir. Mikrofon düğmesiyle cadde ya da mahalle adı söylenerek aranır; istenirse sonuç sesli okunur. Önce Android (Capacitor).
+Ankara ve Kırıkkale için ilçe seçilir, o günün nöbetçi eczaneleri listelenir. Mikrofon düğmesiyle cadde ya da mahalle adı söylenerek aranır; istenirse sonuç sesli okunur. Önce Android (Capacitor).
 
-- **İller:** Ankara, Kırıkkale, Kayseri, Mersin. Kayseri ve Mersin listeleri odaların nöbet sayfasından (`kayserieo.org.tr`, `mersineczaciodasi.org.tr`) okunur; bu iki ilde her eczanenin nöbet başlangıç ve bitiş saati de gösterilir.
-- **Veri (Ankara):** Ankara Eczacı Odası (Ankara ve Kırıkkale). Liste, odanın nöbetçi eczaneler sayfasının kendi kullandığı istekle alınır: `https://www.aeo.org.tr/getPharmacies/YYYY-AA-GG` (telefonun bugünkü tarihi). İstek telefondan doğrudan gider; arada sunucu ve API anahtarı yok.
+- **Kapsam:** Ankara ve Kırıkkale. Başka iller için yapılan çalışma `arsiv/diger-iller/` klasöründe arşivlendi.
+- **Veri:** Ankara Eczacı Odası (Ankara ve Kırıkkale). Liste, odanın nöbetçi eczaneler sayfasının kendi kullandığı istekle alınır: `https://www.aeo.org.tr/getPharmacies/YYYY-AA-GG` (telefonun bugünkü tarihi). İstek telefondan doğrudan gider; arada sunucu ve API anahtarı yok.
 - **Nöbet günü:** Nöbetin değiştiği saat koda yazılmaz. Sabah nöbet değişene kadar site bir önceki günün listesini verir ve hangi saate kadar geçerli olduğunu söyler; uygulama o saati okur, saat gelince listeyi yeniler. Güncel liste alınamazsa eldeki eski liste kırmızı "Bu liste güncel olmayabilir" uyarısıyla gösterilir.
 - **Web kodu:** `www/index.html` (tek dosya, build adımı yok). Yazı tipi `www/vendor/fonts/inter` (SIL OFL 1.1).
 - **Test:** `test/calistir.js` ve `test/ornek/` (aşağıda).
@@ -47,6 +47,6 @@ Uygulamayı Playwright ile açar; siteye istek gitmez, `aeo.org.tr` ve Nominatim
 - "Konumuma en yakın" telefonun konumunu yalnız mesafe hesabı için kullanır; konum saklanmaz ve dışarı gönderilmez. Mesafeler kuş uçuşudur.
 - Tarayıcıda (bilgisayarda `index.html` açılınca) liste gelmez: tarayıcı başka sitenin sayfasını okutmaz (CORS). Uygulama telefonda Capacitor'ın yerel HTTP'siyle okur.
 - Kaynak resmî bir API değil. Oda cevabın yapısını değiştirirse `SRC_AEO.parse` güncellenir.
-- Ankara Eczacı Odası'nın sitesi nöbet saatlerini vermez (hafta içi akşam, pazar tam gün gibi); Ankara ve Kırıkkale'de uygulama yalnız hangi günün listesinin geçerli olduğunu gösterir. Kayseri ve Mersin'de saatler eczane başına gösterilir.
+- Ankara Eczacı Odası'nın sitesi nöbet saatlerini vermez (hafta içi akşam, pazar tam gün gibi); uygulama yalnız hangi günün listesinin geçerli olduğunu gösterir.
 - "Bulunamazsa en yakını göster" açıkken aranan yer adı konum için OpenStreetMap'e (Nominatim) gönderilir; Ayarlar'dan kapatılabilir.
 - Yeni il ya da API eklemek için `index.html` içindeki `SOURCES` dizisine yeni kaynak yazılır; ekran kodu değişmez.

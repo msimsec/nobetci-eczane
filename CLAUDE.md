@@ -1,6 +1,6 @@
-# CLAUDE.md — Nöbetçi Eczane
+# CLAUDE.md — Ankara Nöbetçi Eczane
 
-Şehir ve ilçe seçilince o günün nöbetçi eczanelerini listeleyen, cadde / mahalle adıyla yazılı ve sesli arama yapan uygulama. Önce Android (Capacitor). İletişim, commit mesajları, PR açıklamaları ve belgeler **Türkçe** yazılır.
+Ankara ve Kırıkkale için ilçe seçilince o günün nöbetçi eczanelerini listeleyen, cadde / mahalle adıyla yazılı ve sesli arama yapan uygulama. Önce Android (Capacitor). İletişim, commit mesajları, PR açıklamaları ve belgeler **Türkçe** yazılır.
 
 ## Yapı
 
@@ -8,20 +8,20 @@
 - `www/vendor/fonts/inter`: yazı tipi depoda (SIL OFL 1.1). Google Fonts ya da CDN kullanılmaz.
 - `android-ek/`: Android'e özgü Java (`SesPlugin.java`: telefonun ses tanıma penceresi + metin okuma motoru; `MainActivity.java`).
 - `scripts/android-ek.js`: `android-ek/` dosyalarını, manifest'teki `<queries>` bloğunu ve konum iznini Android projesine yerleştirir, sürüm adını `package.json`'dan `build.gradle`'a yazar. `npm run android:hazirla` bunu ve `cap sync`'i çalıştırır.
-- `test/calistir.js`: Playwright testi (`npm test`). `test/ornek/yapay.html` elle kurulmuş örnek cevap (Ankara); `kayseri.html` / `mersin.html` sitelerin 22.11.2026 sayfasından kısaltılmış kartlar; `test/ornek/gercek.json` sitenin gerçek cevabı (`npm run ornek:al`, kullanıcının bilgisayarında; bu ortamdan `aeo.org.tr`'ye erişim yok).
+- `test/calistir.js`: Playwright testi (`npm test`). `test/ornek/yapay.html` elle kurulmuş örnek cevap; `test/ornek/gercek.json` sitenin gerçek cevabı (`npm run ornek:al`, kullanıcının bilgisayarında; bu ortamdan `aeo.org.tr`'ye erişim yok).
 - `android-ek/res/`: uygulama simgesi (uyarlanır simge katmanları + eski Android için PNG) ve açılış ekranı. `scripts/simge-uret.js` üretir (`npm run simge:uret`, çizim o dosyadadır; çıktılar depoda durur), `android-ek.js` Android projesine kopyalar ve açılış zemin rengini koyu yapar. Seçilen simge: konum iğnesi içinde artı, koyu zemin (kullanıcı, 2026-11-23; diğer taslaklar `tasarim/simge-ornekleri/`).
+- `arsiv/diger-iller/`: Ankara dışındaki iller için yapılan çalışma (Kayseri / Mersin kaynak kodu, örnekleri, testleri; 60 eczacı odasının tarama sonucu; bakılan API'ler). Uygulamaya ve teste dahil değildir.
 - `android/`: `npx cap add android` ile kullanıcının bilgisayarında üretilir; depoya konmaz (`.gitignore`). Android'e özgü her şey `android-ek/` ve `scripts/android-ek.js` üzerinden gider.
 - Sürüm: `package.json` → `version`. `index.html` içindeki `APP_VERSION` aynı olmalıdır (test denetler).
-- Uygulama kimliği `app.simsec.eczane` (`capacitor.config.json`).
+- Uygulama adı "Ankara Nöbetçi Eczane" (`capacitor.config.json` → `appName`; `android-ek.js` bunu Android'in `strings.xml`'ine yazar). Uygulama kimliği `app.simsec.eczane` değişmedi (değişirse telefonda ayrı bir uygulama olarak kurulur).
 
 ## Kararlar (kullanıcı)
 
+- **Kapsam yalnız Ankara ve Kırıkkale; ad "Ankara Nöbetçi Eczane"** (kullanıcı, 2026-11-24). 81 il hedefinden vazgeçildi: ücretsiz yol 60 oda sitesini tek tek eklemek, diğeri ücretli API idi. Kayseri ve Mersin uygulamadan çıkarıldı; ileride genele yayılırsa kullanılmak üzere `arsiv/diger-iller/` altında duruyor (geri ekleme adımları oradaki README'de). **Başka il ya da API önerilmez; kullanıcı isterse arşivden başlanır.**
 - **Veri kaynağı: eczacı odalarının siteleri.** Ankara Eczacı Odası (Ankara + Kırıkkale): Liste `https://www.aeo.org.tr/getPharmacies/YYYY-AA-GG` adresinden alınır (sitenin kendi sayfasının kullandığı istek; cevap `{ status:"success", html:"…" }`, içerik türü `text/html` olduğu için metin gelir ve `JSON.parse` edilir). **`/nobetci-eczaneler` sayfasının ham HTML'inde eczane yoktur**, liste sonradan bu istekle dolar; sayfa okunmaz. İstenen tarih telefonun bugünkü tarihidir; sabah nöbet değişene kadar site bir önceki günün listesini kendisi verir ve bunu `.alert-nobet` satırıyla söyler (ekranda `#noticeBox`, nöbet günü bu satırdan okunur). Kutular `SRC_AEO.parse` ile ayrıştırılır (`.inline-box`, `data-district`, harita bağlantısındaki koordinat). İlçe listeleri sabittir (`AEO_DISTRICTS`). Sunucu ve API anahtarı yok.
-- **Kayseri ve Mersin eklendi** (kullanıcı, 2026-11-22): Kayseri Eczacı Odası `https://www.kayserieo.org.tr/nobetci-eczaneler`, Mersin Eczacı Odası `https://www.mersineczaciodasi.org.tr/nobetci-eczaneler`. İkisi aynı yazılım (Oben Teknoloji); liste **sayfanın kendi HTML'indedir** (`getPharmacies` isteği bu sitelerde yok, 404 sayfası döner). `obenSource` ile tanımlanır, `.nobet-kart` kartları ayrıştırılır. Mersin'de ilçe başlıkta (`AD - İLÇE`), Kayseri'de `<p>` içinde ok simgesinden sonradır. Aynı yazılımı kullanan başka oda `obenSource({...})` ile tek satırda eklenir (CSP `connect-src`'ye de yazılır).
-- **Nöbet saatleri eczane başına** (yalnız Kayseri / Mersin; site verir): `from` / `to`. Kartta aralık yazılmaz, yalnız işe yarayan uç yazılır (kullanıcı, 2026-11-24: "08:30 – 08:30" anlaşılmıyordu): "Nöbetçi · bitiş yarın 08:30", "Nöbetçi · bitiş bugün 24:00", "Henüz nöbetçi değil · başlangıç bugün 19:00", "Nöbeti bitti · bugün 01:00"; nöbeti biten (`dutyState` 2) soluk gösterilir, sona düşer, sayılmaz, en yakın aramasına girmez; başlamamış olan "henüz başlamadı" diye gösterilir. Liste yenilenince eldeki listede nöbeti süren eczaneler korunur (site gece yeni günün listesine geçmiş olabilir). Bu kaynaklarda `until` = son nöbetin bitişi.
+- Eczane başına nöbet saati altyapısı duruyor (`from` / `to`, `dutyState`, `hoursText`: "Nöbetçi · bitiş yarın 08:30", nöbeti biten soluklaşır ve sona düşer) ama Ankara Eczacı Odası saat vermediği için şu an hiçbir kartta görünmez.
 - Her kaynağın listesi ayrı saklanır (`cacheKey`); `data` yalnız seçili şehrin kaynağını tutar (`syncSource`). "Konumuma en yakın" konum başka kaynağın ilindeyse o ile geçer (`cityAt`).
 - **Nöbet değişim saati koda yazılmaz** (ile ve güne göre değişir; kullanıcı: Ankara'da yalnız pazar, Adana'da cumartesi ve pazar tam gün nöbet). Geçerlilik sonu sitenin `.alert-nobet` satırından okunur (`until`); o saat ya da gece yarısı geçince liste yenilenir (`scheduleTurn`). Liste eskiyse (`isOutdated`) yenisi beklenirken gösterilmez, alınamazsa `#oldBox` uyarısıyla gösterilir. Yeni kaynak eklenirse `until` vermelidir.
-- **API ile veri alma (NosyAPI vb.) sonra konuşulacak**; şimdi önerilmez. Yeni il / kaynak `SOURCES` dizisine eklenir, ekran kodu kaynağı bilmez.
 - **Tema: yalnız koyu ve açık** (+ sistem). Görev & Not uygulamasından yalnız görünüm örnek alındı (dolu üst kart, yuvarlak kartlar, alt sekme çubuğu); başka tema eklenmez.
 - **Sesli arama isteğe bağlı**: mikrofon düğmesi, sesli yanıt ve "bulunamazsa en yakını göster" Ayarlar'dan açılıp kapanır.
 - **Sesli okuma durdurulabilir** (kullanıcı, 2026-11-23): okuma sürerken sonuç satırındaki hoparlör düğmesi kırmızı "durdur" olur, basınca keser (`setSpeaking`, `stopSpeak`). Bitişi eklenti `okumaBitti { kimlik }` olayıyla bildirir; haber gelmezse düğme metin uzunluğuna göre bir süre sonra kendiliğinden döner. "Sesi dene" düğmesi de okurken "Durdur" olur.
@@ -31,7 +31,7 @@
 - Konum araması ilin sınır kutusuyla sınırlanır (`SRC_AEO.bbox`); kutu dışında çıkan yer sayılmaz. Yeni kaynak eklenirse illerinin kutusunu vermelidir.
 - **Konumuma en yakın** (kullanıcı, 2026-11-22): `#locBtn` → `nearMe`, tarayıcının `navigator.geolocation`'ı (ayrı eklenti yok; izni Capacitor'ın WebView'ı sorar). Konum yalnız telefonda mesafe hesabında kullanılır, saklanmaz, dışarı gitmez. Şehir seçimine bakmaz, en yakın beş eczane. Ayarlar'dan kapatılır.
 - "Yol tarifi" Google Haritalar'ın yol tarifi bağlantısını açar (`maps/dir`, başlangıç verilmez).
-- **API şimdilik eklenmiyor; iller oda sitelerinden tek tek eklenir** (kullanıcı, 2026-11-22: başka il istiyor, API "kafasına yatmadı", ücretini sordu). Bakılanlar: NosyAPI ayda 500 ücretsiz kredi, 6 $ / 5.000 kredi, nöbet başlangıç / bitiş saati veriyor; anahtar uygulamaya gömülemeyeceği için ara sunucu gerekir.
+- **API eklenmiyor.** Bakılanlar (NosyAPI, Turkpidya) `arsiv/diger-iller/README.md`'de.
 
 ## Kurallar
 
@@ -54,7 +54,6 @@
 - **Açılır kutular telefonda açılmadı (2026-11-21, kullanıcı):** neden bilinmiyor. PR #2'de `<select>` kaldırıldı; şehir / ilçe seçimi uygulamanın kendi alt penceresiyle (`openPicker`, `#pickBd`; geri tuşu `closePicker`). **Yeni seçim alanı eklenirse `<select>` kullanılmaz.**
 - **Telefonda doğrulanacak (PR #5):** içerik güvenlik politikası uygulamayı bozmuyor mu (liste geliyor, ses çalışıyor mu); "Konumuma en yakın" izin soruyor ve sonuç veriyor mu. Politika sorun çıkarırsa `index.html` başındaki tek `<meta http-equiv="Content-Security-Policy">` satırı kaldırılır.
 - Telefonda henüz denenmeyenler: mikrofon (`Ses.dinle`), sesli okuma (`Ses.oku`; Türkçe ses yoksa `dilYok` uyarısı, motor hazırlanırken art arda okuma), "Ara" ve "Yol tarifi" düğmeleri, geri tuşu.
-- **Kayseri / Mersin telefonda doğrulanacak:** yapı, sayfayı tarayıcıyla açan bir araçtan görüldü; sayfanın betik çalıştırılmadan gelen HTML'inde de kartların olduğu varsayıldı (Ankara'da bu varsayım tutmamıştı). Liste gelmezse hata ayrıntısına bakılır. Gece yarısından sonra sitenin hangi günün listesini gösterdiği de bilinmiyor (kod iki duruma da hazır). Kayseri sayfasında 22.11.2026'da yalnız Kocasinan, Melikgazi, Talas vardı; diğer ilçeler sayfada hiç çıkmıyor olabilir.
 - `test/ornek/gercek.json` yok: ayrıştırma yalnız elle kurulmuş örnekle deneniyor. Kullanıcı `npm run ornek:al` çalıştırıp dosyayı depoya eklerse gerçek yapıyla da denenir.
 - Tarih seçimi yok: site hangi günün nöbetini gösteriyorsa o gelir.
 - Mağazada yayın düşünülürse Ankara Eczacı Odası'ndan yazılı izin alınması önerildi.
