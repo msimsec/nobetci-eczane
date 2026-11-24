@@ -4,6 +4,7 @@
 //   3) Google'a otomatik uygulama yedeği kapatılır (allowBackup=false)
 //   4) Konum izni ("Konumuma en yakın" düğmesi; izin düğmeye basılınca sorulur)
 //   5) Sürüm adı package.json'dan build.gradle'a yazılır
+//   7) Uygulama adı capacitor.config.json'dan strings.xml'e yazılır (cap sync var olan projede adı değiştirmez)
 //   6) Simge ve açılış ekranı (android-ek/res/; "npm run simge:uret" ile üretilir) res/ altına kopyalanır,
 //      açılış ekranının zemin rengi koyu yapılır
 // Yinelenebilir: kaç kez çalıştırılırsa çalıştırılsın sonuç aynıdır. "npm run android:hazirla" bunu çağırır.
@@ -107,4 +108,15 @@ if (fs.existsSync(resKaynak)) {
   }
 }
 
-console.log('Android ekleri yerleştirildi: ' + path.relative(kok, javaHedef) + ' (SesPlugin, MainActivity), AndroidManifest.xml (<queries>, konum izni, allowBackup=false), ' + surumNot + ', ' + simgeNot + '.');
+// 7) Uygulama adı
+const adYol = path.join(ana, 'res', 'values', 'strings.xml');
+let adNot = 'strings.xml bulunamadı, uygulama adı yazılmadı';
+if (fs.existsSync(adYol) && cfg.appName) {
+  const xmlAd = String(cfg.appName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, "\\'");
+  const sx = fs.readFileSync(adYol, 'utf8');
+  const sx2 = sx.replace(/(<string name="(?:app_name|title_activity_main)">)[^<]*(<\/string>)/g, '$1' + xmlAd + '$2');
+  if (sx2 !== sx) fs.writeFileSync(adYol, sx2);
+  adNot = 'uygulama adı "' + cfg.appName + '"';
+}
+
+console.log('Android ekleri yerleştirildi: ' + path.relative(kok, javaHedef) + ' (SesPlugin, MainActivity), AndroidManifest.xml (<queries>, konum izni, allowBackup=false), ' + surumNot + ', ' + simgeNot + ', ' + adNot + '.');

@@ -1,6 +1,6 @@
 {
   "appId": "app.simsec.eczane",
-  "appName": "Nöbetçi Eczane",
+  "appName": "Ankara Nöbetçi Eczane",
   "webDir": "www",
   "plugins": {
     "CapacitorHttp": {
