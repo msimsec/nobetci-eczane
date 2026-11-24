@@ -114,9 +114,14 @@ const CAP = () => {
     assert.strictEqual(await page.locator('#helpCard details[open]').count(), 0);
     await page.click('#helpCard summary:has-text("Sesli arama")');
     // Gizlilik metni uygulamada; iletişim adresi boşken geri bildirim kartı görünmez
-    assert.ok((await metin(page, '#privCard')).includes('hakkınızda veri toplamaz'));
-    assert.strictEqual(await page.locator('#fbCard').isHidden(), true);
-    assert.ok((await page.evaluate(() => feedbackHref('ornek@example.com'))).startsWith('mailto:ornek%40example.com?subject=Ankara'));
+assert.strictEqual(await page.locator('#privCard .pv-list li').count(), 12);                  // 5 söz + 7 izin / servis
+    assert.ok((await metin(page, '#privCard')).includes('Hakkınızda veri toplamıyoruz'));
+    assert.strictEqual(await page.locator('#fbCard').isVisible(), true);
+    assert.ok((await page.locator('#fbBug').getAttribute('href')).startsWith('mailto:ankaraeczane@simsec.app?subject='));
+    assert.ok(decodeURIComponent(await page.locator('#fbIdea').getAttribute('href')).includes('Önerim:'));
+    const fb = await page.evaluate(() => [feedbackUrl('hata', 'ornek@example.com'), feedbackUrl('oneri', 'ornek@example.com')]);
+    assert.ok(fb[0].startsWith('mailto:ornek@example.com?subject=') && decodeURIComponent(fb[0]).includes('Hata bildirimi') && decodeURIComponent(fb[0]).includes('Ne yapıyordum, ne oldu:'), fb[0]);
+    assert.ok(decodeURIComponent(fb[1]).includes('Öneri') && decodeURIComponent(fb[1]).includes('Ankara Nöbetçi Eczane ' + require('../package.json').version), fb[1]);
     assert.strictEqual(await page.locator('#helpCard details[open] p').first().isVisible(), true);
     await ctx.close();
   });
@@ -358,10 +363,11 @@ const CAP = () => {
     assert.strictEqual(m[0].baslik, 'CİNNAH ÖRNEK ECZANESİ');
     assert.strictEqual(m[0].metin, ['CİNNAH ÖRNEK ECZANESİ', 'Cinnah Cad. No:12/A Çankaya', 'Kuğulu Park karşısı', 'Tel: 0 (312) 555 01 01',
       'Nöbet günü: 21 Kasım Cumartesi', 'Yol tarifi: https://www.google.com/maps/dir/?api=1&destination=39.9015,32.861', 'Gitmeden önce eczaneyi arayın.'].join('\n'));
-    // "Yanlış bilgi bildir" adresi boşken görünmez; bağlantı metni kodda üretilir
-    assert.strictEqual(await page.locator('#list .p-rep').count(), 0);
+    // "Yanlış bilgi bildir": her kartta, destek adresine hazır e-posta
+    assert.strictEqual(await page.locator('#list .p-rep').count(), 5);
+    assert.ok(decodeURIComponent(await page.locator('#list .p-rep').first().getAttribute('href')).startsWith('mailto:ankaraeczane@simsec.app?subject=Nöbet bilgisi hatası: CİNNAH ÖRNEK ECZANESİ'));
     const h = await page.evaluate(() => reportHref(data.list[0], 'ornek@example.com'));
-    assert.ok(h.startsWith('mailto:ornek%40example.com?subject=') && decodeURIComponent(h).includes('Eczane: CİNNAH ÖRNEK ECZANESİ') && decodeURIComponent(h).includes('21 Kasım Cumartesi'), h);
+    assert.ok(h.startsWith('mailto:ornek@example.com?subject=') && decodeURIComponent(h).includes('Eczane: CİNNAH ÖRNEK ECZANESİ') && decodeURIComponent(h).includes('21 Kasım Cumartesi'), h);
     await ctx.close();
   });
 

@@ -291,6 +291,20 @@
   .help summary:focus-visible{outline:2px solid var(--accent-text);outline-offset:2px;border-radius:6px;}
   .help details p{margin:0 0 10px;font-size:13.5px;color:var(--text-soft);}
   .help details p b{color:var(--text);}
+  /* Gizlilik ve Geri bildirim: simgeli satır listeleri (Görev & Not'taki düzen) */
+  .pv-lead{margin:0 0 4px;font-size:13.5px;line-height:1.55;color:var(--text-soft);}
+  .pv-h{margin:16px 2px 8px;font-size:14px;font-weight:700;color:var(--text);}
+  .pv-list{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);}
+  .pv-list li{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-bottom:1px solid var(--border);}
+  .pv-list li:last-child{border-bottom:none;}
+  .pv-ic{flex:none;width:26px;font-size:19px;line-height:1.25;text-align:center;}
+  .pv-list b{display:block;font-size:14.5px;font-weight:600;color:var(--text);}
+  .pv-list small{display:block;margin-top:2px;font-size:12.8px;line-height:1.45;color:var(--text-soft);}
+  .pv-act li{padding:0;}
+  .pv-act a{display:flex;gap:12px;align-items:flex-start;width:100%;padding:12px 14px;color:inherit;text-decoration:none;}
+  .pv-act a:active{background:var(--card-hover);}
+  .pv-act .pv-ch{margin-left:auto;align-self:center;color:var(--text-soft);font-size:20px;}
+  .pv-note{margin:10px 2px 0;font-size:12.5px;line-height:1.5;color:var(--text-soft);}
   .about p{margin:0 0 8px;font-size:13.5px;color:var(--text-soft);}
   .about p b{color:var(--text);}
   .about a{color:var(--accent-text);}
@@ -508,22 +522,40 @@
       </details>
     </div>
 
-    <div class="card" id="fbCard" hidden>
-      <h3>Geri bildirim</h3>
-      <div class="s-s" style="font-size:13.5px;color:var(--text-soft);margin:0 0 12px">Bir hata gördüyseniz ya da öneriniz varsa e-postayla yazın. E-posta uygulamanız açılır; siz göndermeden hiçbir şey gitmez.</div>
-      <a class="btn primary" id="fbBtn" style="display:inline-flex;align-items:center;text-decoration:none">Geri bildirim gönder</a>
+    <!-- Gizlilik (Görev & Not'taki düzen: verilen sözler + izinler). Metin uygulamanın gerçek davranışını anlatır;
+         yeni izin, ağ isteği ya da dışa veri gönderen özellik eklenirse burası ve site-ankaraeczane/gizlilik.html birlikte güncellenir. -->
+    <div class="card" id="privCard">
+      <h3>🛡️ Gizlilik</h3>
+      <p class="pv-lead">Gizliliğiniz bizim için önemli. Bu uygulama eczane bulmanız için var; sizinle ilgili hiçbir şeyi bilmesi gerekmiyor.</p>
+      <h4 class="pv-h">Size verdiğimiz sözler</h4>
+      <ul class="pv-list">
+        <li><span class="pv-ic" aria-hidden="true">🔐</span><div><b>Hakkınızda veri toplamıyoruz</b><small>Hesap açmazsınız; sunucumuz yok, uygulama bize ya da başka birine hiçbir bilgi göndermez.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">🚫</span><div><b>Reklam göstermiyoruz</b><small>Gece yarısı eczane ararken reklam beklemezsiniz.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">👁️</span><div><b>Sizi izlemiyoruz</b><small>Analiz, izleme ya da reklam aracı yok. Ne aradığınızı bilmiyoruz, bilmek de istemiyoruz.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">💸</span><div><b>Verilerinizi satmıyoruz</b><small>Satacak veri yok; hiçbirini toplamıyoruz.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">📤</span><div><b>Paylaşmak sizin elinizde</b><small>Eczane bilgisi yalnız siz Paylaş'a dokunursanız, seçtiğiniz uygulamaya gider.</small></div></li>
+      </ul>
+      <h4 class="pv-h">İzinler ve telefonun servisleri</h4>
+      <ul class="pv-list">
+        <li><span class="pv-ic" aria-hidden="true">📍</span><div><b>Konum</b><small>Yalnız “Konumuma en yakın” ya da “Yakına göre” düğmesine basarsanız istenir. Konum bu telefonda mesafe hesabı için o an kullanılır; saklanmaz, hiçbir yere gönderilmez. Düğmeleri Ayarlar → Konum'dan kapatabilirsiniz.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">🌐</span><div><b>İnternet</b><small>Nöbet listesi Ankara Eczacı Odası'nın sitesinden (aeo.org.tr) alınır; her sitede olduğu gibi IP adresiniz o sunucuda görülebilir. “Bulunamazsa en yakını göster” açıkken aradığınız yer adı koordinat için OpenStreetMap'e (Nominatim) gönderilir; konumunuz gönderilmez.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">🎤</span><div><b>Sesli arama</b><small>Uygulama mikrofon izni istemez; telefonun ses tanıma penceresi açılır ve konuşmanız o servise (çoğu telefonda Google) gider. Uygulamaya yalnız yazıya çevrilmiş metin gelir.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">🗺️</span><div><b>Ara, Yol tarifi, Paylaş</b><small>Telefonunuzdaki başka bir uygulamayı açar (telefon, harita, mesajlaşma). Oraya eczanenin adı, adresi, telefonu ve konumu gider.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">📱</span><div><b>Telefonda saklananlar</b><small>Seçtiğiniz şehir ve ilçe, ayarlarınız ve son alınan nöbet listesi. Başka bir şey saklanmaz.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">☁️</span><div><b>Google yedeklemesi kapalı</b><small>Android'in uygulama verisini Google hesabına yedekleme özelliği bu uygulama için kapalıdır.</small></div></li>
+        <li><span class="pv-ic" aria-hidden="true">🧹</span><div><b>Verileri silmek isterseniz</b><small>Telefonun Ayarlar → Uygulamalar → Ankara Nöbetçi Eczane → Depolama → Verileri temizle. Uygulamayı kaldırınca da silinir.</small></div></li>
+      </ul>
     </div>
 
-    <div class="card about" id="privCard">
-      <h3>Gizlilik</h3>
-      <p><b>Kısaca:</b> Bu uygulama hesap açtırmaz, reklam göstermez, sizi izlemez ve hakkınızda veri toplamaz. Geliştiricinin bir sunucusu yoktur; uygulama hiçbir bilgiyi geliştiriciye göndermez.</p>
-      <p><b>Telefonda saklananlar:</b> Seçtiğiniz şehir ve ilçe, ayarlarınız ve son alınan nöbet listesi yalnız bu telefonda saklanır. Uygulamayı kaldırınca silinir; telefonun bulut yedeğine dahil edilmez.</p>
-      <p><b>Konum:</b> “Konumuma en yakın” ya da “Yakına göre” düğmesine bastığınızda telefon konum izni ister. Konum yalnız eczanelere uzaklığı hesaplamak için o an kullanılır; saklanmaz ve hiçbir yere gönderilmez. Bu düğmeleri Ayarlar’dan kapatabilir, izni telefonun ayarlarından geri alabilirsiniz.</p>
-      <p><b>İnternet istekleri:</b> Nöbet listesi Ankara Eczacı Odası’nın sitesinden (aeo.org.tr) alınır; her web sitesinde olduğu gibi bu istekte IP adresiniz o sitenin sunucusunca görülebilir. “Bulunamazsa en yakını göster” açıkken, aradığınız yer adı koordinat bulmak için OpenStreetMap’in Nominatim hizmetine gönderilir; konumunuz gönderilmez. Bu ayarı kapatırsanız bu istek yapılmaz.</p>
-      <p><b>Mikrofon ve ses:</b> Uygulama mikrofon izni istemez ve ses kaydetmez. Mikrofon düğmesi telefonun kendi ses tanıma hizmetini açar; sesiniz o hizmetin (çoğu telefonda Google) kendi gizlilik koşullarıyla işlenir, uygulamaya yalnız yazıya çevrilmiş metin gelir. Sesli okuma telefonun metin okuma motoruyla yapılır.</p>
-      <p><b>Ara, Yol tarifi, Paylaş:</b> Bu düğmeler telefonunuzdaki başka bir uygulamayı açar (telefon, harita, mesajlaşma). Oraya giden bilgi eczanenin adı, adresi, telefonu ve konumudur; sonrası o uygulamanın kendi koşullarına tabidir.</p>
-      <p><b>Çocuklar ve değişiklikler:</b> Uygulama kimseden kişisel veri toplamaz. Bu metin değişirse uygulamanın yeni sürümünde ve mağaza sayfasındaki bağlantıda güncellenir.</p>
-      <p id="privDate">Son güncelleme: 25 Kasım 2026</p>
+    <!-- Geri bildirim: telefonun e-posta uygulaması açılır; alıcı SUPPORT_EMAIL. Adres boşken kart görünmez. -->
+    <div class="card" id="fbCard" hidden>
+      <h3>💬 Geri bildirim</h3>
+      <p class="pv-lead">Bir hata mı buldunuz, ya da bir fikriniz mi var? Yazın, okuyalım. Her mesaj uygulamayı daha iyi yapıyor.</p>
+      <ul class="pv-list pv-act" style="margin-top:12px">
+        <li><a id="fbBug"><span class="pv-ic" aria-hidden="true">🐞</span><div><b>Hata bildir</b><small>Ne yaparken ne oldu? Ekran görüntüsünü e-postaya ekleyebilirsiniz.</small></div><span class="pv-ch" aria-hidden="true">›</span></a></li>
+        <li><a id="fbIdea"><span class="pv-ic" aria-hidden="true">💡</span><div><b>Öneri gönder</b><small>Eksik bulduğunuz bir özellik ya da daha kolay olabilecek bir şey.</small></div><span class="pv-ch" aria-hidden="true">›</span></a></li>
+      </ul>
+      <p class="pv-note">Telefonunuzun e-posta uygulaması açılır; göndermeden önce metni görürsünüz. Uygulama sürümü ile Android sürümü kendiliğinden eklenir; konumunuz ve aramalarınız eklenmez.</p>
     </div>
 
     <div class="card about">
@@ -571,8 +603,9 @@
 
 const NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const APP_VERSION = '0.1.0';     // package.json ile aynı olmalı (test denetler); Android sürüm adı da oradan yazılır
-// İletişim e-postası: Ayarlar → "Geri bildirim" ve kartlardaki "Yanlış bilgi bildir" buraya yazar. Boşken ikisi de gösterilmez.
-const CONTACT_EMAIL = '';
+// Destek e-postası: Ayarlar → "Geri bildirim" ve kartlardaki "Yanlış bilgi bildir" buraya yazar. Boşken ikisi de gösterilmez.
+// Adres mailto'ya olduğu gibi yazılır ("@" kodlanmaz: sabit, güvenli bir adres; %40'ı her e-posta uygulaması çözmeyebilir).
+const SUPPORT_EMAIL = 'ankaraeczane@simsec.app';     // alan adındaki destek adresi (Cloudflare e-posta yönlendirmesiyle posta kutusuna düşer)
 const APP_UA = 'NobetciEczane/' + APP_VERSION + ' (app.simsec.eczane)';
 
 /* ---------- 1) Yardımcılar ---------- */
@@ -1046,13 +1079,18 @@ async function openInMapApp(p){
 }
 function reportHref(p, to){
   const vd = V(), gun = vd && vd.duty ? dateLabel(new Date(vd.duty + 'T12:00:00')) : '';
-  return 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent('Nöbet bilgisi hatası: ' + p.name + (gun ? ' (' + gun + ')' : ''))
+  return 'mailto:' + to + '?subject=' + encodeURIComponent('Nöbet bilgisi hatası: ' + p.name + (gun ? ' (' + gun + ')' : ''))
     + '&body=' + encodeURIComponent('Eczane: ' + p.name + '\nAdres: ' + p.address + '\nİlçe: ' + p.district + (gun ? '\nNöbet günü: ' + gun : '')
       + '\nUygulama sürümü: ' + APP_VERSION + '\n\nSorun (ör. kapalıydı, adres yanlış, telefon yanlış):\n');
 }
-function feedbackHref(to){
-  return 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent('Ankara Nöbetçi Eczane: geri bildirim')
-    + '&body=' + encodeURIComponent('\n\n(Uygulama sürümü: ' + APP_VERSION + ')');
+// Geri bildirim e-postası: metne yalnız uygulama sürümü ve Android sürümü / modeli eklenir; konum, arama ya da liste eklenmez.
+function feedbackUrl(kind, to){
+  const ua = navigator.userAgent || '', m = ua.match(/Android\s+([\d.]+)(?:;\s*([^;)]+))?/);
+  const dev = m ? 'Android ' + m[1] + (m[2] && !/^wv$/i.test(m[2].trim()) ? ' · ' + m[2].replace(/\s*Build\/.*$/i, '').trim() : '') : '';
+  const info = ['Ankara Nöbetçi Eczane ' + APP_VERSION, dev].filter(Boolean).join(' · ');
+  const subject = kind === 'hata' ? 'Hata bildirimi' : 'Öneri', lead = kind === 'hata' ? 'Ne yapıyordum, ne oldu:' : 'Önerim:';
+  return 'mailto:' + (to || SUPPORT_EMAIL) + '?subject=' + encodeURIComponent('Ankara Nöbetçi Eczane — ' + subject)
+    + '&body=' + encodeURIComponent(lead + '\n\n\n\n——\n' + info);
 }
 function findPharmacy(id){
   const pools = [searchRes && searchRes.items ? searchRes.items.map(x => x.p) : [], (V() || { list: [] }).list, (data || { list: [] }).list];
@@ -1184,7 +1222,7 @@ function cardHtml(it){
     + '<a class="dir" data-id="' + escapeHtml(p.id) + '" href="' + escapeHtml(mapHref(p)) + '" target="_blank" rel="noopener">' + ICO_MAP + 'Yol tarifi</a>'
     + '<button type="button" class="share" data-id="' + escapeHtml(p.id) + '" aria-label="' + escapeHtml(p.name) + ' bilgisini paylaş" title="Paylaş">' + ICO_SHARE + '</button>'
     + '</div>'
-    + (CONTACT_EMAIL ? '<a class="p-rep" href="' + escapeHtml(reportHref(p, CONTACT_EMAIL)) + '">Yanlış bilgi bildir</a>' : '')
+    + (SUPPORT_EMAIL ? '<a class="p-rep" href="' + escapeHtml(reportHref(p, SUPPORT_EMAIL)) + '">Yanlış bilgi bildir</a>' : '')
     + '</article>';
 }
 
@@ -1575,8 +1613,8 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden){ sche
   micInit();
   locShow();
   $('aboutVer').textContent = 'Sürüm ' + APP_VERSION;
-  $('fbCard').hidden = !CONTACT_EMAIL;
-  if(CONTACT_EMAIL) $('fbBtn').href = feedbackHref(CONTACT_EMAIL);
+  $('fbCard').hidden = !SUPPORT_EMAIL;
+  if(SUPPORT_EMAIL){ $('fbBug').href = feedbackUrl('hata'); $('fbIdea').href = feedbackUrl('oneri'); }
   scheduleTurn();
   load(false);
 
