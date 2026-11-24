@@ -27,9 +27,10 @@ Ankara ve Kırıkkale için ilçe seçilince o günün nöbetçi eczanelerini li
   - **Paylaş** (kartta `button.share` → `PaylasPlugin.metin`; tarayıcıda `navigator.share` ya da panoya kopyalama).
   - **Yakına göre** (`#sortBtn`, `toggleSort`): liste mesafeye göre sıralanır, ilçenin yanında km yazar; konum yalnız bellekte (`myPos`).
   - **Yol tarifi uygulaması** (Ayarlar → Yol tarifi, `LS.nav`): Google Haritalar ya da "her seferinde seç" (`PaylasPlugin.harita`, `geo:` bağlantısı).
-  - **Yanlış bilgi bildir** (`REPORT_EMAIL`, `reportHref`): alıcı adresi boş olduğu için görünmez; kullanıcı adresi söyleyince `index.html`'deki `REPORT_EMAIL` doldurulur.
+  - **Yanlış bilgi bildir** ve Ayarlar → **Geri bildirim** (`CONTACT_EMAIL`, `reportHref`, `feedbackHref`): ikisi de e-posta açar; adres boşken görünmezler.
   - Eklenmeyenler: harita görünümü (dışarıdan harita yüklemek gerekir; rakiplerde yanlış iğne çok şikâyet alıyor), Ankara için nöbet saatleri (oda vermiyor), favori, bildirim / widget.
 - **Nöbet değişiminde yeniden deneme:** liste eski kaldıysa (site henüz yeni listeye geçmedi ya da istek başarısız) 1, 2, 5, 10 dakika aralıklarla kendiliğinden yeniden denenir (`RETRY_SEC`, `retryN`); uyarı metni iki durumu ayırır (`data.late`). Sitenin geçerlilik saati Türkiye saati (UTC+3) olarak yorumlanır.
+- **Ayarlar'da mağaza için bölümler** (kullanıcı, 2026-11-25; "Görev & Not uygulamasındaki gibi"): Yardım, Geri bildirim, Gizlilik, Hakkında. **Lisans bölümü yok** (kullanıcı istemedi; Inter yazı tipinin lisans dosyası `www/vendor/fonts/inter/LICENSE` olarak uygulamayla birlikte gidiyor). Mağaza gizlilik politikası için bir web adresi ister: `docs/gizlilik.html` bunun için; yayımlanacağı adres (ör. GitHub Pages) kullanıcıda.
 - **Tema: yalnız koyu ve açık** (+ sistem). Görev & Not uygulamasından yalnız görünüm örnek alındı (dolu üst kart, yuvarlak kartlar, alt sekme çubuğu); başka tema eklenmez.
 - **Sesli arama isteğe bağlı**: mikrofon düğmesi, sesli yanıt ve "bulunamazsa en yakını göster" Ayarlar'dan açılıp kapanır.
 - **Sesli okuma durdurulabilir** (kullanıcı, 2026-11-23): okuma sürerken sonuç satırındaki hoparlör düğmesi kırmızı "durdur" olur, basınca keser (`setSpeaking`, `stopSpeak`). Bitişi eklenti `okumaBitti { kimlik }` olayıyla bildirir; haber gelmezse düğme metin uzunluğuna göre bir süre sonra kendiliğinden döner. "Sesi dene" düğmesi de okurken "Durdur" olur.
@@ -48,7 +49,8 @@ Ankara ve Kırıkkale için ilçe seçilince o günün nöbetçi eczanelerini li
 - Renkler değişkenle yazılır (`var(--text)`, `var(--green)` …); her arayüz değişikliği koyu ve açık temada, 390 px ve 360 px genişlikte denenir.
 - Sayfada içerik güvenlik politikası var (`<meta http-equiv="Content-Security-Policy">`): yeni bir siteye istek eklenirse `connect-src`'ye yazılır; dışarıdan betik, stil, resim yüklenmez.
 - Ağ isteği `httpGet` ile yapılır: uygulamada `CapacitorHttp` (CORS'a takılmaz), tarayıcıda `fetch`.
-- Yeni izin, ağ isteği ya da veriyi dışarı gönderen özellik eklenirse Ayarlar → "Veri ve hakkında" metni de güncellenir.
+- Yeni izin, ağ isteği ya da veriyi dışarı gönderen özellik eklenirse Ayarlar → "Gizlilik" metni ve mağaza için tutulan `docs/gizlilik.html` birlikte güncellenir (ikisi aynı metindir).
+- Ayarlar → "Yardım" (`#helpCard`, açılır başlıklar) kullanıcıya dönük özellikleri anlatır (kullanıcı, 2026-11-25). Kullanıcının gördüğü bir özellik eklenir, değişir ya da kalkarsa yardım metni de güncellenir.
 
 ## Çalışma şekli
 
@@ -65,6 +67,6 @@ Ankara ve Kırıkkale için ilçe seçilince o günün nöbetçi eczanelerini li
 - `test/ornek/gercek.json` yok: ayrıştırma yalnız elle kurulmuş örnekle deneniyor. Kullanıcı `npm run ornek:al` çalıştırıp dosyayı depoya eklerse gerçek yapıyla da denenir.
 - **Sonraki nöbet günü telefonda doğrulanacak:** sitenin ileri tarihli istekte ne döndürdüğü bu ortamdan görülemedi. Gece (nöbet değişmeden önce) ve gündüz birer kez "sonraki gün"e basılıp gelen listenin gerçekten o güne ait olduğuna bakılmalı.
 - **Telefonda doğrulanacak:** paylaş düğmesi, "her seferinde seç" ile harita uygulaması seçimi, "Yakına göre" sıralama, simgenin altındaki ad.
-- "Yanlış bilgi bildir" için alıcı e-posta adresi bekleniyor.
+- İletişim e-posta adresi (`CONTACT_EMAIL`) bekleniyor; o gelene kadar Geri bildirim kartı ve "Yanlış bilgi bildir" görünmez.
 - Mağazada yayın düşünülürse Ankara Eczacı Odası'ndan yazılı izin alınması önerildi (zorunlu değil; kullanıcı izinsiz yayını sordu, riskler anlatıldı: oda erişimi kesebilir, mağazaya şikâyet edebilir). İstenirse izin e-postası taslağı yazılacak. Mağazada Ankara'ya özel nöbetçi eczane uygulaması bulunmadı.
 - Simge ve açılış ekranı telefonda görülmedi (PR ile eklendi; Capacitor'ın gerçek şablonunda betik denendi, derleme yapılmadı).

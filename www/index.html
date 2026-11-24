@@ -281,6 +281,16 @@
   .sw input:checked + i::after{transform:translateX(22px);}
   .sw input:focus-visible + i{outline:2px solid var(--accent-text);outline-offset:2px;}
   .set-gap{margin-top:12px;}
+  /* Yardım: başlığa dokununca açılan kısa açıklamalar */
+  .help details{border-top:1px solid var(--border);}
+  .help details:first-of-type{border-top:0;}
+  .help summary{list-style:none;cursor:pointer;padding:12px 0;font-weight:600;font-size:14.5px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .help summary::-webkit-details-marker{display:none;}
+  .help summary::after{content:'';flex:none;width:8px;height:8px;border-right:2px solid var(--text-soft);border-bottom:2px solid var(--text-soft);transform:rotate(45deg);margin-right:4px;transition:transform .15s;}
+  .help details[open] summary::after{transform:rotate(-135deg);}
+  .help summary:focus-visible{outline:2px solid var(--accent-text);outline-offset:2px;border-radius:6px;}
+  .help details p{margin:0 0 10px;font-size:13.5px;color:var(--text-soft);}
+  .help details p b{color:var(--text);}
   .about p{margin:0 0 8px;font-size:13.5px;color:var(--text-soft);}
   .about p b{color:var(--text);}
   .about a{color:var(--accent-text);}
@@ -453,14 +463,75 @@
       </div>
     </div>
 
+    <div class="card help" id="helpCard">
+      <h3>Yardım</h3>
+      <details>
+        <summary>Nöbetçi eczaneleri nasıl görürüm?</summary>
+        <p><b>Eczaneler</b> sekmesinde şehir ve ilçe seçin; o ilçenin nöbetçi eczaneleri listelenir. <b>Tüm ilçeler</b> şehrin tamamını gösterir. Üstteki yeşil kartta nöbet günü ve nöbetçi sayısı yazar.</p>
+        <p>Seçiminiz hatırlanır. Uygulama her açılışta aynı yeri göstersin isterseniz yukarıdaki <b>Açılışta gösterilecek yer</b> bölümünden sabit bir yer seçin.</p>
+      </details>
+      <details>
+        <summary>Yarının nöbetçilerine nasıl bakarım?</summary>
+        <p><b>Nöbet günü</b> satırındaki ikinci düğme bir sonraki günün listesini getirir. Bu liste o güne kadar değişebilir. Oda sonraki günü henüz yayımlamadıysa “henüz yayımlanmamış” yazar.</p>
+        <p>Nöbet sabah değişir. Sabah erken saatlerde ilk düğme hâlâ bir önceki günün nöbetini gösterir; bu doğrudur, o eczaneler sabaha kadar nöbetçidir.</p>
+      </details>
+      <details>
+        <summary>Cadde ya da mahalle adıyla nasıl ararım?</summary>
+        <p>Arama kutusuna cadde, sokak, mahalle ya da eczane adını yazın. Küçük yazım hataları sorun olmaz (“cinah” yazsanız da Cinnah bulunur). Arama seçili şehrin tamamında yapılır; ilçe seçiliyse o ilçedeki sonuçlar üstte gelir.</p>
+        <p>Adreste nöbetçi yoksa <b>En yakını bul</b> düğmesi, yazdığınız yere en yakın üç eczaneyi mesafesiyle gösterir.</p>
+      </details>
+      <details>
+        <summary>Sesli arama ve sesli okuma</summary>
+        <p>Arama kutusunun yanındaki yeşil <b>mikrofon</b> düğmesine basıp cadde ya da mahalle adını söyleyin. Sonuç ekrana gelir ve sesli okunur.</p>
+        <p>Okumayı kesmek için sonuç satırındaki <b>kırmızı kare</b> düğmeye basın. Aynı yerdeki hoparlör düğmesi sonucu yeniden okur. Mikrofonu, sesli okumayı ve konuşma hızını yukarıdaki <b>Sesli arama</b> bölümünden ayarlayabilirsiniz.</p>
+      </details>
+      <details>
+        <summary>Bana en yakın eczaneyi nasıl bulurum?</summary>
+        <p><b>Konumuma en yakın nöbetçi</b> düğmesi size en yakın beş eczaneyi gösterir. Liste başlığındaki <b>Yakına göre</b> düğmesi ise bütün listeyi yakından uzağa sıralar ve her kartta mesafeyi yazar.</p>
+        <p>İlk kullanımda telefon konum izni ister. Mesafeler kuş uçuşudur; yol mesafesi daha uzun olabilir. Konumunuz yalnız bu telefonda hesap için kullanılır, hiçbir yere gönderilmez.</p>
+      </details>
+      <details>
+        <summary>Karttaki düğmeler ne işe yarar?</summary>
+        <p><b>Ara</b> eczaneyi telefonla arar. <b>Yol tarifi</b> harita uygulamasında yol tarifini açar; hangi uygulamanın açılacağını <b>Yol tarifi</b> bölümünden seçebilirsiniz. <b>Paylaş</b> düğmesi eczanenin adını, adresini, telefonunu ve yol tarifi bağlantısını başkasına göndermenizi sağlar.</p>
+      </details>
+      <details>
+        <summary>Kırmızı “Bu liste güncel olmayabilir” uyarısı ne demek?</summary>
+        <p>Ekrandaki liste eski bir nöbete ait olabilir: ya internet yoktur ya da oda sitesi henüz yeni nöbet listesine geçmemiştir. Uygulama kısa aralıklarla kendiliğinden yeniden dener; <b>Yeniden dene</b> düğmesine de basabilirsiniz. Bu uyarı varken gitmeden önce eczaneyi mutlaka arayın.</p>
+      </details>
+      <details>
+        <summary>İnternet yokken çalışır mı?</summary>
+        <p>Son alınan liste telefonda saklanır ve internet yokken de görünür; altında “çevrimdışı, kayıtlı liste” yazar. Liste eskiyse kırmızı uyarı çıkar. Yer adına göre en yakını bulma ve sonraki günün listesi internet ister.</p>
+      </details>
+      <details>
+        <summary>Liste yanlışsa ya da eczane kapalıysa?</summary>
+        <p>Liste Ankara Eczacı Odası'nın sitesinden okunur; nöbetler son anda değişebilir. Bu yüzden gitmeden önce <b>Ara</b> düğmesiyle eczaneyi arayıp teyit edin. Üstteki yenile düğmesi listeyi yeniden alır. Acil durumda 112'yi arayın.</p>
+      </details>
+    </div>
+
+    <div class="card" id="fbCard" hidden>
+      <h3>Geri bildirim</h3>
+      <div class="s-s" style="font-size:13.5px;color:var(--text-soft);margin:0 0 12px">Bir hata gördüyseniz ya da öneriniz varsa e-postayla yazın. E-posta uygulamanız açılır; siz göndermeden hiçbir şey gitmez.</div>
+      <a class="btn primary" id="fbBtn" style="display:inline-flex;align-items:center;text-decoration:none">Geri bildirim gönder</a>
+    </div>
+
+    <div class="card about" id="privCard">
+      <h3>Gizlilik</h3>
+      <p><b>Kısaca:</b> Bu uygulama hesap açtırmaz, reklam göstermez, sizi izlemez ve hakkınızda veri toplamaz. Geliştiricinin bir sunucusu yoktur; uygulama hiçbir bilgiyi geliştiriciye göndermez.</p>
+      <p><b>Telefonda saklananlar:</b> Seçtiğiniz şehir ve ilçe, ayarlarınız ve son alınan nöbet listesi yalnız bu telefonda saklanır. Uygulamayı kaldırınca silinir; telefonun bulut yedeğine dahil edilmez.</p>
+      <p><b>Konum:</b> “Konumuma en yakın” ya da “Yakına göre” düğmesine bastığınızda telefon konum izni ister. Konum yalnız eczanelere uzaklığı hesaplamak için o an kullanılır; saklanmaz ve hiçbir yere gönderilmez. Bu düğmeleri Ayarlar’dan kapatabilir, izni telefonun ayarlarından geri alabilirsiniz.</p>
+      <p><b>İnternet istekleri:</b> Nöbet listesi Ankara Eczacı Odası’nın sitesinden (aeo.org.tr) alınır; her web sitesinde olduğu gibi bu istekte IP adresiniz o sitenin sunucusunca görülebilir. “Bulunamazsa en yakını göster” açıkken, aradığınız yer adı koordinat bulmak için OpenStreetMap’in Nominatim hizmetine gönderilir; konumunuz gönderilmez. Bu ayarı kapatırsanız bu istek yapılmaz.</p>
+      <p><b>Mikrofon ve ses:</b> Uygulama mikrofon izni istemez ve ses kaydetmez. Mikrofon düğmesi telefonun kendi ses tanıma hizmetini açar; sesiniz o hizmetin (çoğu telefonda Google) kendi gizlilik koşullarıyla işlenir, uygulamaya yalnız yazıya çevrilmiş metin gelir. Sesli okuma telefonun metin okuma motoruyla yapılır.</p>
+      <p><b>Ara, Yol tarifi, Paylaş:</b> Bu düğmeler telefonunuzdaki başka bir uygulamayı açar (telefon, harita, mesajlaşma). Oraya giden bilgi eczanenin adı, adresi, telefonu ve konumudur; sonrası o uygulamanın kendi koşullarına tabidir.</p>
+      <p><b>Çocuklar ve değişiklikler:</b> Uygulama kimseden kişisel veri toplamaz. Bu metin değişirse uygulamanın yeni sürümünde ve mağaza sayfasındaki bağlantıda güncellenir.</p>
+      <p id="privDate">Son güncelleme: 25 Kasım 2026</p>
+    </div>
+
     <div class="card about">
-      <h3>Veri ve hakkında</h3>
+      <h3>Hakkında</h3>
       <p id="aboutSrc"></p>
       <p id="aboutUpdated"><b>Son güncelleme:</b> —</p>
       <p>Nöbet listesi son anda değişebilir. Gitmeden önce eczaneyi arayın. Acil durumda 112'yi arayın.</p>
-      <p>Bu uygulama Ankara Eczacı Odası'nın resmî uygulaması değildir; liste odanın herkese açık nöbet sayfasından okunur. Hesap, reklam ve izleme yoktur; seçimleriniz yalnız bu telefonda saklanır.</p>
-      <p><b>Konum:</b> “Konumuma en yakın” ya da “Yakına göre” düğmesine basınca telefon konum izni ister. Konum yalnız eczanelere uzaklığı hesaplamak için o an kullanılır; saklanmaz ve hiçbir yere gönderilmez. Düğme Ayarlar'dan kapatılabilir.</p>
-      <p><b>Yer adı araması:</b> “Bulunamazsa en yakını göster” açıkken aradığınız yer adı koordinat için OpenStreetMap'e (Nominatim) gönderilir; konumunuz gönderilmez.</p>
+      <p>Bu uygulama Ankara Eczacı Odası'nın resmî uygulaması değildir; liste odanın herkese açık nöbet sayfasından okunur.</p>
       <p id="aboutVer"></p>
     </div>
   </section>
@@ -500,8 +571,8 @@
 
 const NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const APP_VERSION = '0.1.0';     // package.json ile aynı olmalı (test denetler); Android sürüm adı da oradan yazılır
-// "Yanlış bilgi bildir" bağlantısının gideceği e-posta. Boşken bağlantı hiç gösterilmez.
-const REPORT_EMAIL = '';
+// İletişim e-postası: Ayarlar → "Geri bildirim" ve kartlardaki "Yanlış bilgi bildir" buraya yazar. Boşken ikisi de gösterilmez.
+const CONTACT_EMAIL = '';
 const APP_UA = 'NobetciEczane/' + APP_VERSION + ' (app.simsec.eczane)';
 
 /* ---------- 1) Yardımcılar ---------- */
@@ -979,6 +1050,10 @@ function reportHref(p, to){
     + '&body=' + encodeURIComponent('Eczane: ' + p.name + '\nAdres: ' + p.address + '\nİlçe: ' + p.district + (gun ? '\nNöbet günü: ' + gun : '')
       + '\nUygulama sürümü: ' + APP_VERSION + '\n\nSorun (ör. kapalıydı, adres yanlış, telefon yanlış):\n');
 }
+function feedbackHref(to){
+  return 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent('Ankara Nöbetçi Eczane: geri bildirim')
+    + '&body=' + encodeURIComponent('\n\n(Uygulama sürümü: ' + APP_VERSION + ')');
+}
 function findPharmacy(id){
   const pools = [searchRes && searchRes.items ? searchRes.items.map(x => x.p) : [], (V() || { list: [] }).list, (data || { list: [] }).list];
   for(const l of pools){ const p = l.find(x => x.id === id); if(p) return p; }
@@ -1109,7 +1184,7 @@ function cardHtml(it){
     + '<a class="dir" data-id="' + escapeHtml(p.id) + '" href="' + escapeHtml(mapHref(p)) + '" target="_blank" rel="noopener">' + ICO_MAP + 'Yol tarifi</a>'
     + '<button type="button" class="share" data-id="' + escapeHtml(p.id) + '" aria-label="' + escapeHtml(p.name) + ' bilgisini paylaş" title="Paylaş">' + ICO_SHARE + '</button>'
     + '</div>'
-    + (REPORT_EMAIL ? '<a class="p-rep" href="' + escapeHtml(reportHref(p, REPORT_EMAIL)) + '">Yanlış bilgi bildir</a>' : '')
+    + (CONTACT_EMAIL ? '<a class="p-rep" href="' + escapeHtml(reportHref(p, CONTACT_EMAIL)) + '">Yanlış bilgi bildir</a>' : '')
     + '</article>';
 }
 
@@ -1500,6 +1575,8 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden){ sche
   micInit();
   locShow();
   $('aboutVer').textContent = 'Sürüm ' + APP_VERSION;
+  $('fbCard').hidden = !CONTACT_EMAIL;
+  if(CONTACT_EMAIL) $('fbBtn').href = feedbackHref(CONTACT_EMAIL);
   scheduleTurn();
   load(false);
 
