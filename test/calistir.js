@@ -54,6 +54,11 @@ const CAP = () => {
     });
     if (ayar.sahteSaat) await page.clock.install({ time: new Date(ayar.saat) });
     else await page.clock.setFixedTime(new Date(ayar.saat));
+    // Paylaşma / harita eklentisi taklidi: çağrıları window.__paylas içine kaydeder.
+    if (ayar.paylas) await page.addInitScript(() => {
+      const k = window.__paylas = { metin: [], harita: [] };
+      window.Capacitor.Plugins.Paylas = { metin: async o => { k.metin.push(o); }, harita: async o => { k.harita.push(o); } };
+    });
     await ctx.route('https://www.aeo.org.tr/**', async route => {
       durum.istekler.push(route.request().url());
       const c = await durum.ayar.cevap(route.request().url());
@@ -302,6 +307,84 @@ const CAP = () => {
   });
 
   const sehirSec = async (page, ad) => { await page.click('#cityBtn'); await page.click('#pickList .opt:has-text("' + ad + '")'); };
+  await dene('sonraki nöbet günü: liste ayrı istenir, uyarısıyla gösterilir; site vermiyorsa "yayımlanmamış" denir', async () => {
+    const YARIN = YAPAY.replace(/CİNNAH/g, 'YARINKİ').replace(/ALİ PAŞA/g, 'ÖBÜR').replace(/ETLİK/g, 'BAŞKA');
+    const { ctx, page, durum } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: url => url.endsWith('2026-11-22') ? YARIN : YAPAY });
+    await page.waitForSelector('#list .ph');
+    assert.deepStrictEqual(await page.locator('#daySeg button').allInnerTexts(), ['21 Kasım Cumartesi', '22 Kasım Pazar']);
+    await page.click('#daySeg button[data-v="1"]');
+    await page.waitForSelector('#list .p-name:has-text("YARINKİ")');
+    assert.strictEqual(durum.istekler[1], 'https://www.aeo.org.tr/getPharmacies/2026-11-22');
+    assert.strictEqual(await metin(page, '#heroDate'), '22 Kasım Pazar');
+    assert.strictEqual(await metin(page, '#heroCount'), '5');
+    assert.ok((await metin(page, '#noticeBox')).includes('sonraki nöbet gününün listesidir'));
+    await page.fill('#searchInput', 'cinnah caddesi');                                      // arama gösterilen günde yapılır
+    await page.waitForSelector('#resultBox:not([hidden])');
+    assert.strictEqual((await adlar(page))[0], 'YARINKİ ÖRNEK ECZANESİ');
+    assert.strictEqual((await adlar(page)).length, 1);
+    await page.click('#resultClose');
+    await page.click('#daySeg button[data-v="0"]');
+    await page.waitForSelector('#list .p-name:has-text("CİNNAH")');
+    assert.strictEqual(await metin(page, '#heroDate'), '21 Kasım Cumartesi');
+    assert.strictEqual(await page.locator('#noticeBox').isHidden(), true);
+    // Site sonraki gün için de bugünkü listeyi verirse sonraki gün diye gösterilmez
+    durum.ayar.cevap = () => YAPAY;
+    await page.evaluate(() => { nextData = null; });
+    await page.click('#daySeg button[data-v="1"]');
+    await page.waitForSelector('#dayBack');
+    assert.ok((await metin(page, '#list')).includes('henüz yayımlanmamış'));
+    assert.strictEqual(await metin(page, '#heroCount'), '–');
+    await page.click('#dayBack');
+    await page.waitForSelector('#list .p-name:has-text("CİNNAH")');
+    assert.deepStrictEqual(durum.hata, []);
+    await ctx.close();
+  });
+
+  await dene('paylaş: eczane bilgisi telefonun paylaşma penceresine gider', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, paylas: true });
+    await page.waitForSelector('#list .ph');
+    await page.locator('#list .ph', { hasText: 'CİNNAH' }).locator('button.share').click();
+    const m = await page.evaluate(() => window.__paylas.metin);
+    assert.strictEqual(m.length, 1);
+    assert.strictEqual(m[0].baslik, 'CİNNAH ÖRNEK ECZANESİ');
+    assert.strictEqual(m[0].metin, ['CİNNAH ÖRNEK ECZANESİ', 'Cinnah Cad. No:12/A Çankaya', 'Kuğulu Park karşısı', 'Tel: 0 (312) 555 01 01',
+      'Nöbet günü: 21 Kasım Cumartesi', 'Yol tarifi: https://www.google.com/maps/dir/?api=1&destination=39.9015,32.861', 'Gitmeden önce eczaneyi arayın.'].join('\n'));
+    // "Yanlış bilgi bildir" adresi boşken görünmez; bağlantı metni kodda üretilir
+    assert.strictEqual(await page.locator('#list .p-rep').count(), 0);
+    const h = await page.evaluate(() => reportHref(data.list[0], 'ornek@example.com'));
+    assert.ok(h.startsWith('mailto:ornek%40example.com?subject=') && decodeURIComponent(h).includes('Eczane: CİNNAH ÖRNEK ECZANESİ') && decodeURIComponent(h).includes('21 Kasım Cumartesi'), h);
+    await ctx.close();
+  });
+
+  await dene('yakına göre: liste mesafeye göre sıralanır, kartta km yazar; konumsuz eczane sona düşer', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, konum: [39.9690, 32.8310] });
+    await page.waitForSelector('#list .ph');
+    assert.strictEqual((await adlar(page))[0], 'CİNNAH ÖRNEK ECZANESİ');
+    await page.click('#sortBtn');
+    await page.waitForSelector('#sortBtn.on');
+    const a = await adlar(page);
+    assert.deepStrictEqual([a[0], a[a.length - 1]], ['ETLİK ECZANESİ', '<img src=x onerror=window.__xss=1> ECZANESİ']);   // sonuncunun konumu yok
+    assert.strictEqual(await page.locator('#list .p-dist').first().innerText(), 'Keçiören · 150 m');
+    assert.strictEqual(await page.locator('#list .ph.near').count(), 0);
+    await page.click('#sortBtn');                                                           // kapatınca eski sıra
+    assert.strictEqual((await adlar(page))[0], 'CİNNAH ÖRNEK ECZANESİ');
+    assert.strictEqual(await page.locator('#list .p-dist').first().innerText(), 'Çankaya');
+    await ctx.close();
+  });
+
+  await dene('yol tarifi: "her seferinde seç" açıkken harita uygulaması seçtirilir', async () => {
+    const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, paylas: true });
+    await page.waitForSelector('#list .ph');
+    await page.click('#appTabs button[data-tab="ayarlar"]');
+    assert.strictEqual(await page.locator('#navCard').isVisible(), true);
+    await page.click('#navSeg button[data-v="sec"]');
+    await page.click('#appTabs button[data-tab="liste"]');
+    await page.locator('#list .ph', { hasText: 'CİNNAH' }).locator('a.dir').click();
+    assert.deepStrictEqual(await page.evaluate(() => window.__paylas.harita), [{ lat: 39.9015, lng: 32.861, ad: 'CİNNAH ÖRNEK ECZANESİ', adres: 'Cinnah Cad. No:12/A Çankaya' }]);
+    assert.strictEqual(ctx.pages().length, 1);                                              // Google bağlantısı ayrıca açılmadı
+    await ctx.close();
+  });
+
   await dene('sesli okuma: hoparlör düğmesi okurken "durdur" olur, basınca okuma kesilir, bitince kendiliğinden döner', async () => {
     const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, ses: true });
     await page.waitForSelector('#list .ph');

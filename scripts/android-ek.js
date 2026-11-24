@@ -1,5 +1,5 @@
 // "npx cap add android" ile üretilen Android projesine uygulamanın kendi parçalarını ekler:
-//   1) SesPlugin.java ve MainActivity.java (android-ek/ klasöründen)
+//   1) SesPlugin.java, PaylasPlugin.java ve MainActivity.java (android-ek/ klasöründen)
 //   2) AndroidManifest.xml'e ses tanıma / sesli okuma için <queries> bloğu (Android 11+ paket görünürlüğü)
 //   3) Google'a otomatik uygulama yedeği kapatılır (allowBackup=false)
 //   4) Konum izni ("Konumuma en yakın" düğmesi; izin düğmeye basılınca sorulur)
@@ -25,7 +25,7 @@ if (!fs.existsSync(ana)) {
 // 1) Java dosyaları
 const javaHedef = path.join(ana, 'java', ...paket.split('.'));
 fs.mkdirSync(javaHedef, { recursive: true });
-for (const ad of ['SesPlugin.java', 'MainActivity.java']) {
+for (const ad of ['SesPlugin.java', 'PaylasPlugin.java', 'MainActivity.java']) {
   let kod = fs.readFileSync(path.join(kok, 'android-ek', ad), 'utf8');
   kod = kod.replace(/^package\s+[\w.]+;/m, 'package ' + paket + ';');
   fs.writeFileSync(path.join(javaHedef, ad), kod);
@@ -119,4 +119,4 @@ if (fs.existsSync(adYol) && cfg.appName) {
   adNot = 'uygulama adı "' + cfg.appName + '"';
 }
 
-console.log('Android ekleri yerleştirildi: ' + path.relative(kok, javaHedef) + ' (SesPlugin, MainActivity), AndroidManifest.xml (<queries>, konum izni, allowBackup=false), ' + surumNot + ', ' + simgeNot + ', ' + adNot + '.');
+console.log('Android ekleri yerleştirildi: ' + path.relative(kok, javaHedef) + ' (SesPlugin, PaylasPlugin, MainActivity), AndroidManifest.xml (<queries>, konum izni, allowBackup=false), ' + surumNot + ', ' + simgeNot + ', ' + adNot + '.');
