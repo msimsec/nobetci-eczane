@@ -281,6 +281,34 @@
   .sw input:checked + i::after{transform:translateX(22px);}
   .sw input:focus-visible + i{outline:2px solid var(--accent-text);outline-offset:2px;}
   .set-gap{margin-top:12px;}
+  /* Ayarlar ana ekranı: bölüm kutuları */
+  #view-ayarlar.set-home > .card{display:none !important;}
+  #view-ayarlar.set-sub > .card:not(.set-active){display:none !important;}
+  #view-ayarlar.set-sub > .set-homebox{display:none;}
+  .set-back{margin:0 0 12px;}
+  .set-back button{display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:0 16px 0 10px;border:1px solid var(--border);border-radius:999px;background:var(--panel);color:var(--text);font-size:15px;font-weight:700;}
+  .set-back button span{font-size:22px;line-height:1;color:var(--text-soft);}
+  .set-back button:active{background:var(--card-hover);}
+  .set-ic{width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:21px;flex:none;
+    background:var(--card);background:color-mix(in srgb, var(--hue, var(--green)) 22%, var(--card));}
+  .set-homebox{container-type:inline-size;}
+  .card.set-app{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;margin-bottom:10px;color:var(--text);text-align:left;}
+  .set-app img{width:46px;height:46px;border-radius:13px;flex:none;}
+  .set-app .t{flex:1;min-width:0;} .set-app b{display:block;font-size:16px;font-weight:800;}
+  .set-app small{display:block;color:var(--text-soft);font-size:12.5px;margin-top:2px;}
+  .set-app .set-ch{color:var(--text-soft);font-size:20px;line-height:1;}
+  .set-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .card.set-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0;padding:14px;min-height:112px;color:var(--text);text-align:left;}
+  .set-tile .set-ic{margin-bottom:2px;}
+  .set-tile b{font-size:15px;line-height:1.2;font-weight:700;}
+  .set-tile small{font-size:12.5px;line-height:1.3;color:var(--text-soft);overflow-wrap:anywhere;}
+  .set-app:active, .set-tile:active{background:var(--card-hover);}
+  /* dar alanda kutular tek sütun, simge solda */
+  @container (max-width:300px){
+    .set-grid{grid-template-columns:1fr;gap:8px;}
+    .card.set-tile{display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:1px;align-items:center;min-height:0;padding:10px 12px;}
+    .set-tile .set-ic{grid-row:span 2;margin:0;}
+  }
   /* Yardım: başlığa dokununca açılan kısa açıklamalar */
   .help details{border-top:1px solid var(--border);}
   .help details:first-of-type{border-top:0;}
@@ -405,10 +433,13 @@
   </section>
 
   <!-- ============ Ayarlar ============ -->
-  <section id="view-ayarlar" hidden>
+  <!-- Ayarlar (Görev & Not'taki düzen): önce bölümlerin kutuları, dokununca o bölüm tek başına açılır; "‹ Ayarlar" ve geri tuşu kutulara döner. -->
+  <section id="view-ayarlar" class="set-home" hidden>
     <header><h1>Ayarlar</h1></header>
+    <div class="set-homebox" id="setHome"></div>
+    <div class="set-back" id="setBack" hidden><button type="button" id="setBackBtn"><span aria-hidden="true">‹</span> Ayarlar</button></div>
 
-    <div class="card">
+    <div class="card" id="lookCard">
       <h3>Görünüm</h3>
       <div class="seg" id="themeSeg" role="group" aria-label="Tema">
         <button type="button" data-v="system">Sistem</button>
@@ -417,7 +448,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="startCard">
       <h3>Açılışta gösterilecek yer</h3>
       <div class="seg" id="startSeg" role="group" aria-label="Açılışta gösterilecek yer">
         <button type="button" data-v="last">Son seçtiğim</button>
@@ -435,7 +466,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="locCard">
       <h3>Konum</h3>
       <div class="set-row">
         <div><div class="s-t">“Konumuma en yakın” ve “Yakına göre” düğmeleri</div><div class="s-s">Konum yalnız bu telefonda mesafe hesabı için kullanılır, hiçbir yere gönderilmez</div></div>
@@ -452,7 +483,7 @@
       <div class="s-s" style="font-size:12.5px;color:var(--text-soft);margin:8px 4px 0">“Her seferinde seç” telefondaki harita uygulamalarını (Yandex, Google vb.) listeler.</div>
     </div>
 
-    <div class="card">
+    <div class="card" id="voiceCard">
       <h3>Sesli arama</h3>
       <div class="set-row">
         <div><div class="s-t">Mikrofon düğmesi</div><div class="s-s">Cadde ya da mahalle adını söyleyerek ara</div></div>
@@ -564,7 +595,7 @@
       <p class="pv-note">Telefonunuzun e-posta uygulaması açılır; göndermeden önce metni görürsünüz. Uygulama sürümü ile Android sürümü kendiliğinden eklenir; konumunuz ve aramalarınız eklenmez.</p>
     </div>
 
-    <div class="card about">
+    <div class="card about" id="aboutCard">
       <h3>Hakkında</h3>
       <p id="aboutSrc"></p>
       <p id="aboutUpdated"><b>Son güncelleme:</b> —</p>
@@ -1516,9 +1547,44 @@ function defRead(){
 }
 function saveDef(city, dist){ lsSet(LS.def, JSON.stringify({ city, dist })); }
 
+// Ayarlar ana ekranı: bölüm listesi (id = kartın kimliği, hue = simgenin zemin tonu, v = o anki değer).
+let setOpen = null;
+function setSections(){
+  const on = k => lsGet(k, '1') === '1' ? 'Açık' : 'Kapalı';
+  const theme = { system: 'Sistem', light: 'Açık', dark: 'Koyu' }[lsGet(LS.theme, 'system')] || 'Sistem';
+  const def = defRead();
+  const start = lsGet(LS.start, 'last') === 'fixed' ? def.city + (def.dist === ALL ? '' : ' · ' + def.dist) : 'Son seçtiğim';
+  return [
+    { id: 'lookCard', ic: '🎨', hue: '#E86A92', t: 'Görünüm', v: theme },
+    { id: 'startCard', ic: '🏠', hue: '#6D8BF0', t: 'Açılış yeri', v: start },
+    { id: 'locCard', ic: '📍', hue: '#3FAF6C', t: 'Konum', v: on(LS.loc) },
+    { id: 'voiceCard', ic: '🎤', hue: '#F2A33D', t: 'Sesli arama', v: on(LS.mic) },
+    { id: 'navCard', ic: '🗺️', hue: '#4F8FE0', t: 'Yol tarifi', v: lsGet(LS.nav, 'google') === 'sec' ? 'Her seferinde seç' : 'Google Haritalar', need: () => !!paylasPlugin() },
+    { id: 'helpCard', ic: '❓', hue: '#8A94A6', t: 'Yardım', v: 'Nasıl kullanılır' },
+    { id: 'privCard', ic: '🛡️', hue: '#5B8DEF', t: 'Gizlilik', v: 'Sözlerimiz ve izinler' },
+    { id: 'fbCard', ic: '💬', hue: '#3FAF9A', t: 'Geri bildirim', v: 'Hata bildir, öneri gönder', need: () => !!SUPPORT_EMAIL }
+  ].filter(x => $(x.id) && (!x.need || x.need()));
+}
+function renderSetHome(){
+  $('setHome').innerHTML = '<button type="button" class="card set-app" data-set="aboutCard"><img src="simge.png" alt=""><span class="t"><b>Ankara Nöbetçi Eczane</b>'
+    + '<small>Sürüm ' + escapeHtml(APP_VERSION) + ' · Hakkında</small></span><span class="set-ch" aria-hidden="true">›</span></button>'
+    + '<div class="set-grid">' + setSections().map(x => '<button type="button" class="card set-tile" style="--hue:' + x.hue + '" data-set="' + x.id + '">'
+      + '<span class="set-ic" aria-hidden="true">' + x.ic + '</span><b>' + escapeHtml(x.t) + '</b>' + (x.v ? '<small>' + escapeHtml(x.v) + '</small>' : '') + '</button>').join('') + '</div>';
+}
+function setApply(){
+  const v = $('view-ayarlar');
+  v.classList.toggle('set-sub', !!setOpen); v.classList.toggle('set-home', !setOpen);
+  v.querySelectorAll(':scope > .card').forEach(c => c.classList.toggle('set-active', c.id === setOpen));
+  $('setBack').hidden = !setOpen;
+  if(!setOpen) renderSetHome();
+}
+function setNav(id){ setOpen = id; setApply(); window.scrollTo(0, 0); }
+function setNavHome(){ if(!setOpen) return false; setOpen = null; setApply(); window.scrollTo(0, 0); return true; }
+
 let curTab = 'liste';
 function showView(tab){
   curTab = tab;
+  if(tab === 'ayarlar'){ setOpen = null; setApply(); }        // sekmeye her gelişte bölüm kutuları
   $('view-liste').hidden = tab !== 'liste';
   $('view-ayarlar').hidden = tab !== 'ayarlar';
   $('appTabs').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -1586,6 +1652,8 @@ $('searchInput').addEventListener('keydown', e => {
   if(e.key === 'Enter'){ e.preventDefault(); clearTimeout(typeTimer); e.target.blur(); runSearch(query, { full: true }); }
 });
 $('appTabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if(b) showView(b.dataset.tab); });
+$('setHome').addEventListener('click', e => { const b = e.target.closest('button[data-set]'); if(b) setNav(b.dataset.set); });
+$('setBackBtn').addEventListener('click', setNavHome);
 
 segBind('themeSeg', v => { lsSet(LS.theme, v); applyTheme(); renderSettings(); });
 segBind('startSeg', v => { lsSet(LS.start, v); if(v === 'fixed' && !lsGet(LS.def, '')) lsSet(LS.def, JSON.stringify({ city: selCity, dist: selDist })); renderSettings(); });
@@ -1619,6 +1687,7 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden){ sche
   micInit();
   locShow();
   $('aboutVer').textContent = 'Sürüm ' + APP_VERSION;
+  setApply();
   $('fbCard').hidden = !SUPPORT_EMAIL;
   if(SUPPORT_EMAIL){ $('fbBug').href = feedbackUrl('hata'); $('fbIdea').href = feedbackUrl('oneri'); }
   scheduleTurn();
@@ -1632,6 +1701,7 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden){ sche
     if(P.App && P.App.addListener){
       P.App.addListener('backButton', () => {
         if(closePicker()) return;
+        if(curTab === 'ayarlar' && setNavHome()) return;           // açık bölümden kutulara
         if(curTab !== 'liste'){ showView('liste'); return; }
         if(searchRes || query){ clearSearch(); render(); return; }
         if(viewDay === 1){ setDay(0); return; }
