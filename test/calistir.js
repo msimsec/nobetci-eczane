@@ -110,7 +110,8 @@ const CAP = () => {
     await page.click('#appTabs button[data-tab="ayarlar"]');
     assert.strictEqual(await metin(page, '#aboutVer'), 'Sürüm ' + require('../package.json').version);
     // Yardım: başlıklar kapalı gelir, dokununca açılır
-    assert.strictEqual(await page.locator('#helpCard details').count(), 9);
+    assert.strictEqual(await page.locator('#helpCard details').count(), 10);
+    assert.ok((await page.locator('#helpCard').innerHTML()).includes('ankaraeczane@simsec.app'));
     assert.strictEqual(await page.locator('#helpCard details[open]').count(), 0);
     await page.click('#helpCard summary:has-text("Sesli arama")');
     // Gizlilik metni uygulamada; iletişim adresi boşken geri bildirim kartı görünmez
