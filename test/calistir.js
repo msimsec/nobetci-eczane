@@ -80,6 +80,8 @@ const CAP = () => {
     catch (e) { kalan++; console.log('  KALDI  ' + ad + '\n         ' + String(e && e.message || e).split('\n').join('\n         ')); }
   }
   const metin = (page, sec) => page.locator(sec).innerText();
+  // Ayarlar'da bir bölümü açar: sekme → bölüm kutusu
+  const ayar = async (page, id) => { await page.click('#appTabs button[data-tab="ayarlar"]'); await page.click('#setHome [data-set="' + id + '"]'); };
   const adlar = page => page.locator('#list .p-name').allInnerTexts();
 
   await dene('liste ayrıştırılır, ilçe ve şehir doğru atanır', async () => {
@@ -107,23 +109,35 @@ const CAP = () => {
     // İçerik güvenlik politikası hiçbir şeyi engellemedi, yazı tipi yüklendi, sürüm package.json ile aynı
     assert.deepStrictEqual(durum.hata, []);
     assert.strictEqual(await page.evaluate(() => document.fonts.check('16px Inter')), true);
+    // Ayarlar: önce bölüm kutuları; dokununca yalnız o bölüm açılır, "‹ Ayarlar" kutulara döner
     await page.click('#appTabs button[data-tab="ayarlar"]');
+    assert.deepStrictEqual(await page.locator('#setHome .set-tile b').allInnerTexts(), ['Görünüm', 'Açılış yeri', 'Konum', 'Sesli arama', 'Yardım', 'Gizlilik', 'Geri bildirim']);
+    assert.strictEqual(await page.locator('#view-ayarlar > .card:visible').count(), 0);
+    assert.strictEqual(await page.locator('#setHome .set-tile:has-text("Görünüm") small').innerText(), 'Sistem');
+    await page.click('#setHome [data-set="aboutCard"]');
+    assert.strictEqual(await page.locator('#view-ayarlar > .card:visible').count(), 1);
     assert.strictEqual(await metin(page, '#aboutVer'), 'Sürüm ' + require('../package.json').version);
+    await page.click('#setBackBtn');
+    assert.strictEqual(await page.locator('#setHome .set-tile').first().isVisible(), true);
+    await page.click('#setHome [data-set="lookCard"]'); await page.click('#themeSeg button[data-v="dark"]'); await page.click('#setBackBtn');
+    assert.strictEqual(await page.locator('#setHome .set-tile:has-text("Görünüm") small').innerText(), 'Koyu');
+    await page.click('#setHome [data-set="helpCard"]');
     // Yardım: başlıklar kapalı gelir, dokununca açılır
     assert.strictEqual(await page.locator('#helpCard details').count(), 10);
     assert.ok((await page.locator('#helpCard').innerHTML()).includes('ankaraeczane@simsec.app'));
     assert.strictEqual(await page.locator('#helpCard details[open]').count(), 0);
     await page.click('#helpCard summary:has-text("Sesli arama")');
-    // Gizlilik metni uygulamada; iletişim adresi boşken geri bildirim kartı görünmez
-assert.strictEqual(await page.locator('#privCard .pv-list li').count(), 12);                  // 5 söz + 7 izin / servis
+    assert.strictEqual(await page.locator('#helpCard details[open] p').first().isVisible(), true);
+    await page.click('#setBackBtn'); await page.click('#setHome [data-set="privCard"]');
+    assert.strictEqual(await page.locator('#privCard .pv-list li').count(), 12);                  // 5 söz + 7 izin / servis
     assert.ok((await metin(page, '#privCard')).includes('Hakkınızda veri toplamıyoruz'));
+    await page.click('#setBackBtn'); await page.click('#setHome [data-set="fbCard"]');
     assert.strictEqual(await page.locator('#fbCard').isVisible(), true);
     assert.ok((await page.locator('#fbBug').getAttribute('href')).startsWith('mailto:ankaraeczane@simsec.app?subject='));
     assert.ok(decodeURIComponent(await page.locator('#fbIdea').getAttribute('href')).includes('Önerim:'));
     const fb = await page.evaluate(() => [feedbackUrl('hata', 'ornek@example.com'), feedbackUrl('oneri', 'ornek@example.com')]);
     assert.ok(fb[0].startsWith('mailto:ornek@example.com?subject=') && decodeURIComponent(fb[0]).includes('Hata bildirimi') && decodeURIComponent(fb[0]).includes('Ne yapıyordum, ne oldu:'), fb[0]);
     assert.ok(decodeURIComponent(fb[1]).includes('Öneri') && decodeURIComponent(fb[1]).includes('Ankara Nöbetçi Eczane ' + require('../package.json').version), fb[1]);
-    assert.strictEqual(await page.locator('#helpCard details[open] p').first().isVisible(), true);
     await ctx.close();
   });
 
@@ -287,7 +301,7 @@ assert.strictEqual(await page.locator('#privCard .pv-list li').count(), 12);    
     await page.waitForSelector('#resultBox', { state: 'hidden' });
     assert.strictEqual(await page.locator('#list .ph.near').count(), 0);
     // Ayarlar'dan kapatılınca düğme gizlenir
-    await page.click('#appTabs button[data-tab="ayarlar"]');
+    await ayar(page, 'locCard');
     await page.locator('#setLoc').uncheck();
     await page.click('#appTabs button[data-tab="liste"]');
     assert.strictEqual(await page.locator('#locBtn').isHidden(), true);
@@ -391,7 +405,7 @@ assert.strictEqual(await page.locator('#privCard .pv-list li').count(), 12);    
   await dene('yol tarifi: "her seferinde seç" açıkken harita uygulaması seçtirilir', async () => {
     const { ctx, page } = await sayfaAc({ saat: '2026-11-21T20:00:00+03:00', cevap: () => YAPAY, paylas: true });
     await page.waitForSelector('#list .ph');
-    await page.click('#appTabs button[data-tab="ayarlar"]');
+    await ayar(page, 'navCard');
     assert.strictEqual(await page.locator('#navCard').isVisible(), true);
     await page.click('#navSeg button[data-v="sec"]');
     await page.click('#appTabs button[data-tab="liste"]');
